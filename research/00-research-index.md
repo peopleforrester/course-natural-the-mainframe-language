@@ -11,6 +11,10 @@ ownership, and "current" claims are verified against live sources, not memory.
 | 03 | Academia and job market | The UT connection, mainframe skills gap, who hires, demand, pay |
 | 04 | Existing courses and resources | Official docs, books, tutorials, competing courses, community |
 | 05 | Emulator and WASM feasibility | Can Natural run locally / in a CLI / in the browser (WASM) |
+| 06 | Rust and WASM toolchain | New-technology adoption spike: current toolchain, xterm.js, INPUT strategy, decimals |
+
+Spike 06 also produced `docs/gotchas-rust-wasm.md`, which is required reading before
+writing any Rust or WASM code in this repo.
 
 Cross-cutting reference (not a web spike): `reference/vtt-model/vtt-architecture.md`
 documents the reusable instructions-left / terminal-right VTT extracted from the
