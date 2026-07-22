@@ -1,0 +1,4 @@
+WRITE 'Hello World!'
+WRITE
+WRITE 'Natural runs here.'
+END

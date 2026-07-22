@@ -1,0 +1,5 @@
+# Pinned per docs/gotchas-rust-wasm.md so the build is reproducible and the wasm
+# target installs automatically. Verified current stable as of 2026-07-22.
+[toolchain]
+channel = "1.97.1"
+targets = ["wasm32-unknown-unknown"]
