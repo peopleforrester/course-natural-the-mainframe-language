@@ -1,13 +1,13 @@
 # Project State: course-natural-the-mainframe-language
 
-Phase: 1.2 Plan
-Approved: pending
+Phase: 1.3 Approve
+Approved: 2026-07-22T18:45:25Z by Michael (sha256:135613afc4c9)
 
 ## Lifecycle
 - [x] 1.1 Research
 - [x] 1.2 Plan
-- [ ] 1.3 Approve  ← you are here
-- [ ] 2.1 Test
+- [x] 1.3 Approve
+- [ ] 2.1 Test  ← you are here (Rust/WASM spike first)
 - [ ] 2.2 Implement
 - [ ] 2.3 Verify
 - [ ] 3.1 Stage
@@ -15,7 +15,18 @@ Approved: pending
 - [ ] 3.3 Promote
 
 ## Contracts
-None sealed yet. Phase 1.3 approval will record the first.
+- 2026-07-22T18:45:25Z (sha256:135613afc4c9) `spec/course-spec.md` approved by
+  Michael. Binding terms:
+  - v1 scope is **Tier 1 only, modules 1 to 9**. Tier 2 is a later release.
+  - Interpreter is **Rust**, compiled to WASM, client-side against xterm.js. A
+    scoped Rust-to-WASM spike runs **before** P1 implementation.
+  - Product intent is a **revenue course** sold B2B.
+  - v1 is positioned and priced as **release 1**, and must **not** promise
+    job-readiness until Tier 2 ships.
+  - Repo stays private through the build.
+  - Do not host the free Community Edition as the course backend (license wall).
+
+  Changes to these terms require /prd-amend and re-approval.
 
 ## Current Plan
 Build an interactive, browser-based course for the Natural mainframe language,

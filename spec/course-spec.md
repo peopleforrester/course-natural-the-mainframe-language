@@ -202,18 +202,27 @@ A walking-skeleton milestone (one Tier-1 lesson running end to end in the browse
 should come as early as the end of P3, before authoring all content, to de-risk the
 architecture bet.
 
-## 8. Open questions for Michael (decide before/at approval)
+## 8. Decisions (resolved by Michael, 2026-07-22)
 
-1. **Scope depth of v1:** ship Tier 1 only first (modules 1 to 9, the fastest path
-   to a live, useful course), or commit to all three tiers up front?
-2. **Interpreter language:** the spike recommends Rust for the WASM toolchain and
-   decimal semantics. Confirm Rust, or prefer another language already in your
-   stack? (Rust is new to this repo, so adopting it triggers your new-technology
-   research rule; I would do a focused Rust-WASM-interpreter spike before P1.)
-3. **Product intent:** is this primarily a revenue course, or a portfolio/marketing
-   asset where the WASM interpreter itself is the showpiece? This changes how much
-   polish and content breadth to fund.
-4. **Repo visibility:** stays private through the build; when (if) does it go public?
+1. **Scope of v1: Tier 1 only (modules 1 to 9).** Ship the fastest path to a live,
+   fully interactive course, then extend. Tier 2 follows in a later release.
+2. **Interpreter language: Rust, with a scoped research spike first.** A focused
+   Rust-to-WASM-interpreter spike runs before P1, per the new-technology
+   research-first rule. Rust is confirmed for the WASM toolchain and for exact
+   decimal semantics.
+3. **Product intent: a revenue course.** Sold B2B, aimed at employers backfilling
+   retiring Natural developers and at COBOL/mainframe developers cross-training.
+4. **Repo visibility:** stays private through the build. Revisit before launch.
+
+### Recorded tension to manage (raised at approval)
+
+Tier 1 alone is not "job-ready" by spike 02's own definition: modules 1 to 8 get a
+learner writing database-touching code, but modules 9 to 14 are what turn that into
+job-ready maintenance capability. A B2B buyer is purchasing job-readiness. Therefore
+v1 must be positioned and priced as **release 1 of a course that extends into
+Tier 2**, not as the finished job-ready product. Marketing copy and pricing must not
+promise job-readiness until Tier 2 ships. This constraint is part of the approved
+contract.
 
 ## 9. Risks
 
