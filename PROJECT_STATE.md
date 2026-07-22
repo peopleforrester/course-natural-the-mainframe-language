@@ -1,16 +1,16 @@
 # Project State: course-natural-the-mainframe-language
 
-Phase: 1.3 Approve
+Phase: 2.3 Verify
 Approved: 2026-07-22T18:45:25Z by Michael (sha256:135613afc4c9)
 
 ## Lifecycle
 - [x] 1.1 Research
 - [x] 1.2 Plan
 - [x] 1.3 Approve
-- [ ] 2.1 Test  ← you are here (Rust/WASM spike first)
-- [ ] 2.2 Implement
-- [ ] 2.3 Verify
-- [ ] 3.1 Stage
+- [x] 2.1 Test
+- [x] 2.2 Implement
+- [x] 2.3 Verify
+- [ ] 3.1 Stage  ← you are here
 - [ ] 3.2 Confirm CI
 - [ ] 3.3 Promote
 
@@ -49,9 +49,16 @@ Phase 1.3 (pending): Michael's approval, plus answers to the four open questions
 spec section 8 (v1 scope depth, confirm Rust, product intent, public-repo timing).
 
 ## Branch & Tests
-- Branch: main (bootstrap), staging created for ongoing work
-- Working tree: scaffolding
-- Last CI: none yet
+- Branch: staging
+- Working tree: clean after the M-A commit
+- Tests: 9 passing (`cargo test --workspace`), clippy clean under `-D warnings`,
+  `cargo fmt --check` clean
+- Toolchain: rustc 1.97.1 via the pinned `rust-toolchain.toml`, which independently
+  confirmed the version claim in spike 06
+- Wasm: `cargo build -p natural-core --target wasm32-unknown-unknown` succeeds. The
+  day-one wasm check from the gotchas doc is settled for the core crate. The
+  `rust_decimal` wasm question stays open until M-B adds the dependency.
+- Last CI: no pipeline configured yet
 
 ## Phase History
 - 2026-07-19 repo initialized, VTT model extracted, research spikes launched

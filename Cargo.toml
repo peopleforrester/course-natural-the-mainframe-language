@@ -1,0 +1,17 @@
+[workspace]
+resolver = "3"
+members = ["crates/natural-core", "crates/natural-cli"]
+
+[workspace.package]
+edition = "2024"
+license = "UNLICENSED"
+publish = false
+
+# Binary size is user-facing on a course page, and Natural-level errors are always
+# Result values rather than panics. See docs/gotchas-rust-wasm.md.
+[profile.release]
+panic = "abort"
+lto = true
+codegen-units = 1
+opt-level = "s"
+strip = true

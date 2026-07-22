@@ -30,3 +30,7 @@ venv/
 
 # Repo-local scratch
 tmp/
+
+# Rust
+/target/
+**/target/

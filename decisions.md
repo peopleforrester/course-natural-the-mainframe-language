@@ -54,3 +54,25 @@ job-readiness until Tier 2 ships. Michael accepted Tier-1-first with this positi
 constraint attached rather than expanding v1 scope.
 
 Next action: the Rust-to-WASM interpreter research spike (gates P1).
+
+## 2026-07-22T19:30:00Z · 2.3 · Milestone M-A complete (execute and print)
+
+Built the Rust workspace and the first interpreter milestone test-first: lexer, parser,
+WRITE, quoted text literals, and END. Nine acceptance tests written before any
+implementation, confirmed failing, then implemented to green.
+
+Design decision honored from spike 06, and recorded because it is not retrofittable:
+statement execution is an explicit program-counter loop in `Interpreter::step`, not a
+recursive tree-walking evaluator. All execution state lives in the struct rather than on
+the Rust call stack, so the interpreter can yield to JavaScript and resume when INPUT
+arrives in Tier 2.
+
+Toolchain pinned per-project via `rust-toolchain.toml` (1.97.1) rather than updating the
+machine's global stable, so other repos are unaffected. Running cargo here installed and
+selected 1.97.1, which independently confirmed spike 06's current-stable claim.
+
+Verified: 9/9 tests pass, clippy clean under -D warnings, fmt clean, CLI runs a real .nat
+file end to end, and the missing-END error path prints the teaching message with a
+non-zero exit. `natural-core` compiles to wasm32-unknown-unknown, settling the gotchas
+doc's day-one wasm check for the core crate. The `rust_decimal` wasm question remains
+open until M-B introduces that dependency.
