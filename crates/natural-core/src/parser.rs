@@ -40,6 +40,72 @@ pub enum Statement {
         prompt: Option<String>,
         targets: Vec<(String, usize)>,
     },
+    /// Evaluate the condition and jump to `target` when it is FALSE.
+    ///
+    /// Blocks are compiled to a flat instruction list with jumps rather than a nested
+    /// tree. That keeps execution an explicit program-counter loop, which is what lets the
+    /// interpreter suspend anywhere, including inside a conditional branch.
+    IfFalseJump {
+        condition: Condition,
+        target: usize,
+        line: usize,
+    },
+    /// Unconditional jump, used to skip an ELSE branch.
+    Jump {
+        target: usize,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CompareOp {
+    Eq,
+    Ne,
+    Gt,
+    Lt,
+    Ge,
+    Le,
+}
+
+impl CompareOp {
+    fn parse(token: &str) -> Option<CompareOp> {
+        match token.to_ascii_uppercase().as_str() {
+            "=" | "EQ" | "==" => Some(CompareOp::Eq),
+            "<>" | "NE" | "!=" | "^=" => Some(CompareOp::Ne),
+            ">" | "GT" => Some(CompareOp::Gt),
+            "<" | "LT" => Some(CompareOp::Lt),
+            ">=" | "GE" => Some(CompareOp::Ge),
+            "<=" | "LE" => Some(CompareOp::Le),
+            _ => None,
+        }
+    }
+
+    /// Applies the operator to the result of an ordering comparison.
+    pub fn holds(self, ordering: std::cmp::Ordering) -> bool {
+        use std::cmp::Ordering::{Equal, Greater, Less};
+        match self {
+            CompareOp::Eq => ordering == Equal,
+            CompareOp::Ne => ordering != Equal,
+            CompareOp::Gt => ordering == Greater,
+            CompareOp::Lt => ordering == Less,
+            CompareOp::Ge => matches!(ordering, Greater | Equal),
+            CompareOp::Le => matches!(ordering, Less | Equal),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Condition {
+    pub left: Operand,
+    pub op: CompareOp,
+    pub right: Operand,
+}
+
+/// A block whose jump target is not known until its closing keyword is reached.
+enum OpenBlock {
+    /// An IF with no ELSE yet. Holds the index of its IfFalseJump.
+    If { false_jump: usize, line: usize },
+    /// An IF whose ELSE has been seen. Holds the index of the Jump that skips the ELSE.
+    Else { end_jump: usize, line: usize },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -74,12 +140,15 @@ pub fn parse(source: &str) -> Result<Program, NaturalError> {
     let tokens = lexer::tokenize(source)?;
     let mut program = Program::default();
     let mut mode = Mode::Preamble;
+    let mut blocks: Vec<OpenBlock> = Vec::new();
     let mut current: Vec<Token> = Vec::new();
+    let mut finished = false;
 
     for token in tokens {
         if matches!(token, Token::Newline) {
-            if parse_line(&current, &mut program, &mut mode)? {
-                return Ok(program);
+            if parse_line(&current, &mut program, &mut mode, &mut blocks)? {
+                finished = true;
+                break;
             }
             current.clear();
         } else {
@@ -88,10 +157,21 @@ pub fn parse(source: &str) -> Result<Program, NaturalError> {
     }
 
     // A final line with no trailing newline is still a statement.
-    if parse_line(&current, &mut program, &mut mode)? {
-        return Ok(program);
+    if !finished && parse_line(&current, &mut program, &mut mode, &mut blocks)? {
+        finished = true;
     }
 
+    // An unclosed block is reported before a missing END, because it is the more specific
+    // and more useful diagnostic.
+    if let Some(open) = blocks.first() {
+        let line = match open {
+            OpenBlock::If { line, .. } | OpenBlock::Else { line, .. } => *line,
+        };
+        return Err(NaturalError::MissingEndIf { line });
+    }
+    if finished {
+        return Ok(program);
+    }
     if mode == Mode::DataBlock {
         return Err(NaturalError::MissingEndDefine);
     }
@@ -104,6 +184,7 @@ fn parse_line(
     tokens: &[Token],
     program: &mut Program,
     mode: &mut Mode,
+    blocks: &mut Vec<OpenBlock>,
 ) -> Result<bool, NaturalError> {
     let Some(first) = tokens.first() else {
         return Ok(false);
@@ -166,6 +247,61 @@ fn parse_line(
         }
         "INPUT" => {
             program.statements.push(parse_input(tokens, line)?);
+            Ok(false)
+        }
+        "IF" => {
+            let condition = parse_condition(&tokens[1..], line)?;
+            blocks.push(OpenBlock::If {
+                false_jump: program.statements.len(),
+                line,
+            });
+            // The target is patched when ELSE or END-IF is reached.
+            program.statements.push(Statement::IfFalseJump {
+                condition,
+                target: usize::MAX,
+                line,
+            });
+            Ok(false)
+        }
+        "ELSE" => {
+            let Some(OpenBlock::If {
+                false_jump,
+                line: open_line,
+            }) = blocks.pop()
+            else {
+                return Err(NaturalError::UnexpectedBlockKeyword {
+                    keyword: "ELSE".to_string(),
+                    hint: "An ELSE needs an IF above it, and each IF takes only one ELSE."
+                        .to_string(),
+                    line,
+                });
+            };
+            // Close the THEN branch by jumping over the ELSE branch.
+            let end_jump = program.statements.len();
+            program
+                .statements
+                .push(Statement::Jump { target: usize::MAX });
+            // A false condition now lands on the first statement of the ELSE branch.
+            patch_target(program, false_jump, program_len(program));
+            blocks.push(OpenBlock::Else {
+                end_jump,
+                line: open_line,
+            });
+            Ok(false)
+        }
+        "END-IF" => {
+            let Some(open) = blocks.pop() else {
+                return Err(NaturalError::UnexpectedBlockKeyword {
+                    keyword: "END-IF".to_string(),
+                    hint: "An END-IF needs a matching IF above it.".to_string(),
+                    line,
+                });
+            };
+            let here = program_len(program);
+            match open {
+                OpenBlock::If { false_jump, .. } => patch_target(program, false_jump, here),
+                OpenBlock::Else { end_jump, .. } => patch_target(program, end_jump, here),
+            }
             Ok(false)
         }
         _ => {
@@ -349,6 +485,48 @@ fn parse_reset(tokens: &[Token], line: usize) -> Result<Statement, NaturalError>
         });
     }
     Ok(Statement::Reset { targets })
+}
+
+fn program_len(program: &Program) -> usize {
+    program.statements.len()
+}
+
+/// Fills in a jump target that was left unresolved when the instruction was emitted.
+fn patch_target(program: &mut Program, index: usize, target: usize) {
+    match &mut program.statements[index] {
+        Statement::IfFalseJump { target: t, .. } | Statement::Jump { target: t } => *t = target,
+        _ => unreachable!("only jump instructions are ever patched"),
+    }
+}
+
+/// Parses `<operand> <operator> <operand>` with an optional trailing THEN.
+fn parse_condition(tokens: &[Token], line: usize) -> Result<Condition, NaturalError> {
+    let mut tokens = tokens;
+    if let Some(Token::Word { text, .. }) = tokens.last()
+        && text.eq_ignore_ascii_case("THEN")
+    {
+        tokens = &tokens[..tokens.len() - 1];
+    }
+
+    let malformed = || NaturalError::UnknownStatement {
+        name: "a condition. Write it as IF #FIELD > 10, with spaces around the operator"
+            .to_string(),
+        line,
+    };
+
+    if tokens.len() != 3 {
+        return Err(malformed());
+    }
+    let Token::Word { text: op, .. } = &tokens[1] else {
+        return Err(malformed());
+    };
+    let op = CompareOp::parse(op).ok_or_else(malformed)?;
+
+    Ok(Condition {
+        left: operand_from(&tokens[0], line)?,
+        op,
+        right: operand_from(&tokens[2], line)?,
+    })
 }
 
 fn parse_input(tokens: &[Token], line: usize) -> Result<Statement, NaturalError> {

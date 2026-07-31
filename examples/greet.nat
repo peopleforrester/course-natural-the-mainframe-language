@@ -1,0 +1,14 @@
+DEFINE DATA LOCAL
+1 #NAME (A20)
+1 #AGE (N3)
+END-DEFINE
+WRITE 'Natural teaching interpreter'
+MOVE 'HOPPER' TO #NAME
+MOVE 42 TO #AGE
+IF #AGE > 40
+WRITE 'Veteran:' #NAME
+ELSE
+WRITE 'Newcomer:' #NAME
+END-IF
+WRITE 'Age is' #AGE
+END
