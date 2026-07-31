@@ -75,4 +75,21 @@ pub enum NaturalError {
 
     #[error("The program is not waiting for input right now.")]
     NotWaitingForInput,
+
+    #[error("Line {line}: this IF was never closed. Add END-IF after the statements it guards.")]
+    MissingEndIf { line: usize },
+
+    #[error("Line {line}: {keyword} does not belong here. {hint}")]
+    UnexpectedBlockKeyword {
+        keyword: String,
+        hint: String,
+        line: usize,
+    },
+
+    #[error("Line {line}: cannot compare {left} with {right}. Compare like with like.")]
+    IncomparableValues {
+        left: String,
+        right: String,
+        line: usize,
+    },
 }

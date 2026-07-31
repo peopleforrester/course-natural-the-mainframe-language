@@ -2,7 +2,7 @@
 // ABOUTME: program counter, never Rust recursion, so it can pause for INPUT and resume.
 
 use crate::error::NaturalError;
-use crate::parser::{Operand, Program, Statement, WriteItem};
+use crate::parser::{Condition, Operand, Program, Statement, WriteItem};
 use crate::value::{Format, Value, coerce, render_field};
 use rust_decimal::Decimal;
 use std::collections::BTreeMap;
@@ -155,6 +155,21 @@ impl Interpreter {
                     }
                 }
 
+                // Blocks are compiled to jumps, so control flow is just an assignment to
+                // the program counter. Nothing recurses, so a suspension can happen
+                // anywhere, including inside a branch.
+                Statement::IfFalseJump {
+                    condition,
+                    target,
+                    line,
+                } => {
+                    if !self.evaluate(&condition, line)? {
+                        self.pc = target;
+                    }
+                }
+
+                Statement::Jump { target } => self.pc = target,
+
                 Statement::Input { prompt, targets } => {
                     // Fail fast on an undeclared field rather than suspending and only
                     // discovering the problem after the learner has typed something.
@@ -192,6 +207,29 @@ impl Interpreter {
             pending.next += 1;
         }
         Ok(())
+    }
+
+    /// Evaluates a comparison. Values must be of the same kind, because silently coercing
+    /// text and numbers would let a learner write a comparison that quietly never matches.
+    fn evaluate(&self, condition: &Condition, line: usize) -> Result<bool, NaturalError> {
+        let left = self.resolve(&condition.left)?;
+        let right = self.resolve(&condition.right)?;
+
+        let ordering = match (&left, &right) {
+            (Value::Number(a), Value::Number(b)) => a.cmp(b),
+            // Natural pads the shorter operand with blanks, so trailing blanks never
+            // affect the result. Comparing the stored text gives the same answer.
+            (Value::Alpha(a), Value::Alpha(b)) => a.trim_end().cmp(b.trim_end()),
+            (Value::Logical(a), Value::Logical(b)) => a.cmp(b),
+            _ => {
+                return Err(NaturalError::IncomparableValues {
+                    left: left.describe_kind().to_string(),
+                    right: right.describe_kind().to_string(),
+                    line,
+                });
+            }
+        };
+        Ok(condition.op.holds(ordering))
     }
 
     fn resolve(&self, operand: &Operand) -> Result<Value, NaturalError> {

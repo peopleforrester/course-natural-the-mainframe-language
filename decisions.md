@@ -226,3 +226,25 @@ Design points worth recording:
 Line-mode prompt rendering (literal if given, else the field name) is recorded as a course
 convention rather than a Natural fact, because real Natural presents a map instead of
 prompting field by field.
+
+## 2026-08-01T00:00:00Z · 2.2 · Milestone M-C2: IF, ELSE, and block structure
+
+Added conditional blocks, test-first, 20 acceptance tests, all green on the first run.
+
+The design decision that matters: **blocks compile to a flat instruction list with jumps,
+not to a nested statement tree.** An IF emits an `IfFalseJump` whose target is patched when
+its ELSE or END-IF is reached, and an ELSE emits a `Jump` over the else branch. Open blocks
+live on a parser-side stack that also produces the diagnostics for an unclosed IF, a
+stray ELSE, a stray END-IF, and a second ELSE on one IF.
+
+This keeps `step` a plain program-counter loop. Control flow becomes an assignment to the
+program counter, so nothing recurses and the interpreter can still suspend anywhere,
+including in the middle of a taken branch. Two tests pin that property directly: an INPUT
+inside a taken branch suspends and resumes correctly, and an INPUT inside a skipped branch
+never prompts at all. The same jump machinery will carry FOR and REPEAT in the next
+increment, so loops need no new execution model.
+
+Comparison requires both operands to be the same kind. Silently coercing text and numbers
+would let a learner write a comparison that quietly never matches, which is worse than an
+error. Alphanumeric comparison ignores trailing blanks, matching Natural's blank padding of
+the shorter operand.
