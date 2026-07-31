@@ -9,7 +9,7 @@ mod value;
 
 pub use error::NaturalError;
 pub use interp::{Field, Interpreter, Step};
-pub use value::{Format, Value};
+pub use value::{Format, Value, print_width, render_field};
 
 /// Re-exported so callers can build and compare numeric values without depending on the
 /// exact decimal crate version themselves.

@@ -38,6 +38,13 @@ chosen in spike 06 to avoid `SharedArrayBuffer` and COOP/COEP headers). Recursiv
 *expression* evaluation is fine, because `INPUT` only occurs at statement level.
 This is not retrofittable.
 
+**Corollary added 2026-08-01, from `research/08-mainframe-emulators-3270.md`: the screen
+buffer must be a first-class concept in the interpreter's execution state from the start,
+not bolted on for Tier 2.** A Natural map read is a yield point exactly like `INPUT`, so
+the thing being suspended is a screen, not just a line of text. Model execution state so a
+pending screen can be part of it. Retrofitting this later costs as much as retrofitting
+the state machine itself.
+
 ## Approved contract (Phase 1.3, sha256:135613afc4c9)
 
 Binding until amended via `/prd-amend` and re-approval:
@@ -60,6 +67,26 @@ Binding until amended via `/prd-amend` and re-approval:
   must yield consistent results, so the sample dataset resets per run.
 - **Errors are teaching surfaces.** Diagnostics name the Natural concept ("DEFINE
   DATA must be the first statement"), not parser internals.
+
+## Terminal look and feel
+
+Decided from `research/08-mainframe-emulators-3270.md`:
+
+- Use the **`rbanffy/3270font`** webfont (BSD-3-Clause and OFL-1.1-RFN). It descends from
+  the x3270 font, which was hand-copied from a physical 3270, and it is the single
+  cheapest large jump in authenticity available.
+- Fixed **24x80 Model 2 grid**, `scrollback: 0`, and no FitAddon, because a real 3270 does
+  not scroll or reflow.
+- Green and amber palettes, plus a subtle self-authored CSS CRT overlay. Do **not** vendor
+  `cool-retro-term-renderer`; it is GPL-3.0.
+- Add an **Operator Information Area** strip below the grid. After the font it is the most
+  recognizable 3270 signal, and it turns otherwise invisible interpreter state (`X SYSTEM`
+  while running, `X Protected` on a bad keystroke) into a teaching surface.
+- Tier 2 maps are implemented at the **field-model** level: fields, attribute bytes,
+  protected/numeric/intensified/hidden, the modified data tag, AID keys, and Read Modified
+  semantics. Explicitly **skip the 3270 data stream** (SBA/SF/SFE orders, 12-bit
+  addressing, EBCDIC, TN3270E), which is weeks of work invisible to a Natural programmer.
+  Reference APIs worth reading: `racingmars/go3270` and `TN3270Sharp`, both MIT.
 
 ## Content accuracy
 

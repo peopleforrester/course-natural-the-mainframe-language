@@ -20,7 +20,7 @@ shippable, testable increment of the Rust core.
 |---|---|---|
 | **M-A** Execute and print | 1, 2 | Lexer, parser, `WRITE`, string literals, `END` |
 | **M-B** Data and arithmetic | 3, 4 | `DEFINE DATA LOCAL`, formats, `MOVE`, `COMPUTE`, decimals |
-| **M-C** Control and output | 5, 6, 7 | `IF`, `DECIDE`, `FOR`, `REPEAT`, `ESCAPE`, `DISPLAY`, edit masks |
+| **M-C** Control, input, and output | 5, 6, 7 | `INPUT` (yield and resume), `IF`, `DECIDE`, `FOR`, `REPEAT`, `ESCAPE`, `DISPLAY`, edit masks |
 | **M-D** Data access | 8, 9 | `VIEW OF`, `READ`, `FIND`, `HISTOGRAM`, `STORE`/`UPDATE`/`DELETE`, `END TRANSACTION` |
 
 ---
@@ -30,12 +30,25 @@ shippable, testable increment of the Rust core.
 **Objective:** understand what Natural is, where it runs, and why it is still worth
 learning. Establishes credibility and motivation before any syntax.
 
-**Content (no code execution):** Natural as a 4GL released in 1979, built as the
-native language of the ADABAS database. Where it runs today (z/OS, z/VSE, BS2000,
-Linux/Cloud). Who maintains it now (Software GmbH, Silver Lake owned, standalone
-since January 2025). The skills gap: retiring developers, unfilled backfill roles,
-vendor support committed well beyond 2050, live demand concentrated in state
-government and insurance.
+**Content (no code execution):** Natural as a 4GL built as the native language of the
+ADABAS database, developed from 1975 by Peter Pagé with Margit Neumann. Avoid asserting a
+precise first-release year: the commonly cited 1979 has no primary source.
+
+**Where it runs today, corrected 2026-08-01: IBM z/OS and Linux, plus Windows and
+containers.** Do not teach z/VSE, BS2000, or legacy Unix as current platforms. All three
+are retired with elapsed end-of-maintenance dates (z/VSE 2023-06-30, BS2000/OSD
+2023-12-31, legacy Unix 2024-12-31), and the vendor has said it will focus on Linux and
+z/OS. Mentioning them as history is fine and is good context for why maintenance work
+exists; presenting them as live targets is a factual error.
+
+Who maintains it now: Software GmbH, Silver Lake owned, standalone since January 2025.
+
+The skills gap, stated carefully: Forrester and Compuware found 23 percent mainframe staff
+loss with 63 percent of those roles unfilled. Demand is real, scarcity priced, and
+concentrated in state government and insurance. Do not use the acute-retirement framing
+built on the Futurum figure, which was misquoted and whose report argues the opposite. The
+"2050 and beyond" commitment is real but dates from 2016 and predates the standalone
+split, so present it as a stated long-term agenda rather than a guarantee.
 
 **Terminal use:** a single "run your first program" teaser at the end, to prove the
 terminal is real before the learner invests attention.
@@ -138,11 +151,20 @@ declared format must raise a clear teaching error rather than silently wrapping.
 
 ---
 
-## Module 5: Conditional logic
+## Module 5: Input and conditional logic
 
-**Objective:** branch.
+**Objective:** read a value from the learner, then branch on it.
 
-**Constructs:** `IF` / `THEN` / `ELSE` / `END-IF`, `DECIDE ON`, `DECIDE FOR`.
+**Amended 2026-08-01** after curriculum validation (`research/09-curriculum-validation.md`).
+`INPUT` was missing from Tier 1 entirely, which was a genuine defect for three reasons.
+Five of seven real published Natural syllabi teach user input in the first half. The
+vendor's own verified `DECIDE ON` and `DECIDE FOR` examples both open with `INPUT`. And
+this project makes the resumable state machine a non-negotiable architecture constraint
+*because of* `INPUT`, yet no Tier 1 lesson exercised it, which would have left the single
+riskiest part of the design unproven until Tier 2.
+
+**Constructs:** prompt-style `INPUT`, then `IF` / `THEN` / `ELSE` / `END-IF`, `DECIDE ON`,
+`DECIDE FOR`.
 
 ```natural
 IF #SALARY > 50000
@@ -163,6 +185,11 @@ developers under-use, and it is common in the maintenance code they will meet.
 **Interpreter requirements (M-C):** comparison and logical operators with
 type-correct comparison across formats; `IF`/`ELSE` nesting; `DECIDE ON` value and
 range matching; `DECIDE FOR` condition evaluation with the `NONE` fallback.
+
+Plus the first real use of the yield machinery: `INPUT` returns a `NeedsInput` step to the
+caller and resumes when a line is supplied, with all execution state held in the
+interpreter struct rather than on the Rust call stack. This is the lesson that proves the
+architecture, so it should be built early rather than last.
 
 ---
 
@@ -237,6 +264,14 @@ over sample data rather than a live ADABAS instance.
 `READ` is physical/logical sequence; `FIND` is a search on a descriptor. Knowing
 which to reach for is a genuine skill.
 
+**Required opening for this module, added 2026-08-01.** The lesson must open by naming
+the vendor's own distinction between **database loops** and **non-database loops**
+(Programming Guide, "Loop Processing"). `READ` and `FIND` are loops, and the learner has
+already met `FOR` and `REPEAT` in module 7. Without stating that these are the same
+concept applied to records, teaching loops first actively confuses learners, and the
+curriculum validation found that this framing is the condition under which the
+loops-before-database ordering is defensible at all.
+
 **Interpreter requirements (M-D):** load fixture datasets; resolve `VIEW OF` against
 a DDM definition; implement `READ` ordering (`BY` descriptor), `FIND` with predicate
 and `SORTED BY`, `HISTOGRAM` over descriptor values; loop event blocks
@@ -271,6 +306,40 @@ A short end-of-Tier-1 exercise combining modules 3 to 9: read the EMPLOYEES samp
 data, filter and compute with it, format a report with `DISPLAY`, and write a record
 back with a committed transaction. This proves Tier 1 competence without requiring
 the modularization content that lives in Tier 2.
+
+## Curriculum amendments from validation (2026-08-01)
+
+`research/09-curriculum-validation.md` compared this outline against seven real published
+sequences, including Software AG's own five-day "Natural Programming Fundamentals"
+instructor-led course with its eleven topics printed in order. The curriculum holds up and
+does not need rebuilding. These specific changes are required:
+
+1. **`INPUT` joins module 5.** Applied above. The largest single defect found.
+2. **The loops-versus-database ordering question is settled in this file's favor.** The
+   research doc (`research/02-training-curriculum.md`) puts loops at 9 and database at 7;
+   this outline puts loops at 7 and database at 8. Keep this outline's order and amend the
+   research doc. Raw counts across syllabi favor database-first five to two, but the split
+   sorts cleanly by source type: the only two sources that are *designed beginner
+   programming courses* both teach loops first, while the database-first five are
+   reference manuals, an Adabas-centric course, and a scripted walkthrough. The mitigation
+   in module 8 above is mandatory for this call to hold.
+3. **Module 3's example must actually use its variables.** As written it declares three
+   fields and uses none, which teaches declaration as ceremony. Rebuild the example around
+   a program that needs the fields it declares.
+4. **Arrays are under-weighted.** Software AG places arrays at position 2 of 11 in its
+   fundamentals course. This outline mentions them in a parenthetical. Give arrays real
+   teaching space in module 3.
+5. **Error handling is under-weighted.** Software AG puts it inside the *fundamentals*
+   course and on the certification blueprint. This outline files it under "advanced" in
+   module 16. Promote it into Tier 1 or state deliberately why not.
+6. **Maps move from module 10 to module 14** in the full sequence, after modularization,
+   matching the vendor's placement of user interface work at 10 of 11. This costs nothing
+   now because 3270 maps are already outside v1 scope.
+
+**Scope check, and a validation of the contract term.** Tier 1 covers roughly 55 to 65
+percent of one five-day vendor course, and Software AG requires about ten classroom days
+plus project experience before certifying. The contract term forbidding any job-readiness
+claim until Tier 2 ships is therefore arithmetic rather than caution.
 
 ## Cross-cutting authoring requirements
 

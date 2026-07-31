@@ -2,8 +2,8 @@
 // ABOUTME: program counter, never Rust recursion, so it can pause for INPUT in Tier 2.
 
 use crate::error::NaturalError;
-use crate::parser::{Operand, Program, Statement};
-use crate::value::{Format, Value, coerce};
+use crate::parser::{Operand, Program, Statement, WriteItem};
+use crate::value::{Format, Value, coerce, render_field};
 use std::collections::BTreeMap;
 
 /// One observable effect of advancing the interpreter.
@@ -68,9 +68,26 @@ impl Interpreter {
             self.pc += 1;
 
             match statement {
-                // WRITE emits its operands separated by a single space. A bare WRITE emits
-                // a blank line, which is how Natural programs space their output.
-                Statement::Write { operands } => return Ok(Step::Output(operands.join(" "))),
+                // WRITE separates consecutive elements with exactly one blank. Literals are
+                // verbatim; fields are padded to their full print width.
+                Statement::Write { items } => {
+                    let mut parts = Vec::with_capacity(items.len());
+                    for item in &items {
+                        parts.push(match item {
+                            WriteItem::Literal(text) => text.clone(),
+                            WriteItem::Field { name, line } => {
+                                let field = self.fields.get(name).ok_or_else(|| {
+                                    NaturalError::UndeclaredVariable {
+                                        name: name.clone(),
+                                        line: *line,
+                                    }
+                                })?;
+                                render_field(&field.value, &field.format)
+                            }
+                        });
+                    }
+                    return Ok(Step::Output(parts.join(" ")));
+                }
 
                 Statement::Move {
                     source,

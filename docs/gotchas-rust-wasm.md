@@ -65,7 +65,7 @@ All versions below verified as of 2026-07-22 against the linked source.
   |---|---|
   | `wasm32-wasip1` / `wasm32-wasip2` | WASI targets assume a POSIX-ish host. Browsers are not one. Running them in a browser needs a JS WASI shim, which reintroduces the blocking-stdin problem anyway. |
   | `wasm32-unknown-emscripten` | Drags in the Emscripten toolchain for no benefit. |
-  | `wasm32v1-none` | Tier 3, `no_std` only. |
+  | `wasm32v1-none` | Tier 2 without host tools, `no_std` only. |
 
 * **The component model and `cargo-component` are not the browser path today.**
   Browsers do not load components natively; a component must be transpiled back
@@ -103,12 +103,22 @@ All versions below verified as of 2026-07-22 against the linked source.
 
 * **The documentation moved.** Wrong URL: `rustwasm.github.io/docs/wasm-bindgen/`,
   which now says it is no longer maintained at that domain. Correct:
-  `wasm-bindgen.github.io/wasm-bindgen/`. The `rustwasm` GitHub org was sunset on
-  2025-07-21; wasm-bindgen, web-sys, wasm-pack, and gloo were all transferred,
-  not deprecated.
+  `wasm-bindgen.github.io/wasm-bindgen/`.
+
+* **What the rustwasm sunset actually said** (corrected on 2026-08-01; an earlier
+  version of this doc got it backwards). The `rustwasm` GitHub org was sunset on
+  2025-07-21. Only **wasm-bindgen** was transferred to a new maintainer org. The
+  announcement did **not** say wasm-pack and gloo were transferred; it invited
+  users to fork them. wasm-pack was subsequently picked up by new community
+  maintainers and now lives under the `wasm-bindgen` org, which is why it is
+  healthy again today. Do not repeat the claim that everything was simply
+  "transferred, not deprecated".
 
 * **Deprecated wasm-bindgen patterns still shown in tutorials:**
-  * `JsStatic` (deprecated 0.2.93). Use `#[wasm_bindgen(thread_local)]`.
+  * `JsStatic` (deprecated 0.2.93). Use `#[wasm_bindgen(thread_local_v2)]`.
+    Careful here: plain `#[wasm_bindgen(thread_local)]` was ITSELF deprecated in
+    0.2.96, so a tutorial (or an earlier version of this doc) recommending it is
+    also stale. `thread_local_v2` is the current attribute.
   * The `--weak-refs` CLI flag (deprecated 0.2.91). Weak reference support is
     detected at runtime; passing the flag is dead weight.
   * `JsOption<T>` changed in 0.2.123 so only `undefined` is empty and `null` is a
@@ -133,11 +143,14 @@ All versions below verified as of 2026-07-22 against the linked source.
   * `require-corp` also breaks every cross-origin subresource (fonts, CDN
     images, analytics) that does not send `Cross-Origin-Resource-Policy`.
 
-* **Do not design around JSPI yet.** JavaScript Promise Integration is exactly
-  the right long-term answer for a synchronous `INPUT`, and it reached Phase 4 in
-  April 2025 and shipped in Chrome 137, but it is still behind a flag in Firefox
-  and unshipped in Safari as of 2026-07-22. It is an Interop 2026 focus area,
-  which means convergence is a goal for this year, not a fact. Revisit later.
+* **Do not design around JSPI yet, but the picture is moving.** JavaScript
+  Promise Integration is the right long-term answer for a synchronous `INPUT`. It
+  reached Phase 4 in April 2025, shipped in Chrome 137, and (corrected on
+  2026-08-01) shipped **unflagged in Firefox 153 on 2026-07-21**, not behind a
+  flag as this doc previously said. Safari remains the sole blocker: `false` on
+  desktop and iOS through 26.5, putting global support near 67 percent. It is an
+  Interop 2026 focus area. Revisit when Safari ships; until then the state
+  machine below is still the correct choice.
 
 * **Correct approach for this project: a resumable state machine.** The
   interpreter runs until it needs input, returns a `NeedsInput` step to JS, and
