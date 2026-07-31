@@ -93,3 +93,31 @@ The gate found real em-dashes in `reference/vtt-model/vtt-architecture.md` on it
 run, which the earlier manual scan had missed because it only covered `research/`.
 Revisit this decision if the repo goes public or gains outside contributors, where
 hosted CI checks pull requests from people who have not installed the hook.
+
+## 2026-07-31T00:00:00Z · 2.3 · Milestone M-B complete (data and assignment)
+
+Added the DEFINE DATA block, format and length parsing, the field environment, and
+assignment through MOVE, the := operator, and RESET. Twenty-two acceptance tests written
+before implementation. Adopted `thiserror` for the error enum per the Rust house rule,
+and `rust_decimal` for exact base-10 arithmetic per spike 06.
+
+Corrected a factual error in the approved lesson outline. It stated that `(N7.2)` means
+seven digits in total. The Natural Programming Guide, "User-Defined Variables", defines
+the `nn.m` form as "`nn` represents the number of positions before the decimal point, and
+`m` represents the number of positions after", so `N7.2` is nine positions. The outline
+and the interpreter now both encode the documented meaning, and a regression test pins
+it. Also encoded from the same source: N and P allow at most 29 positions, and I accepts
+only lengths 1, 2, and 4.
+
+Caught and fixed a violation of the non-negotiable architecture constraint during
+implementation. Statements that produce no output initially called `step` recursively to
+reach the next observable effect, which is Rust call-stack recursion in statement
+execution. It is now an explicit loop, so the interpreter stays pausable for INPUT.
+
+`WRITE` of a variable is deliberately not implemented yet and returns a clear
+NotYetSupported diagnostic. Printing a field depends on Natural's default output
+formatting rules, which are being verified in spike 07 rather than invented, because
+every lesson's expected-output fixture will depend on them.
+
+Verified: 31 tests pass, clippy clean under -D warnings, fmt clean, and the wasm build
+now succeeds with `rust_decimal` in the tree, settling that open question.

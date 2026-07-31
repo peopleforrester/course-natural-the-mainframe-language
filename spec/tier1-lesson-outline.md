@@ -86,9 +86,17 @@ END
 
 **Teaching points:** `DEFINE DATA` must come first. Format letters map to real
 storage semantics: `A` alphanumeric, `N` unpacked numeric, `P` packed decimal,
-`I` integer, `L` logical, `D` date, `T` time. The `(N7.2)` notation means seven
-digits total with two decimal places, which is a business-arithmetic decision, not
-a display choice.
+`I` integer, `L` logical, `D` date, `T` time.
+
+The `(N7.2)` notation means **seven positions before the decimal point and two
+after**, so nine digit positions in total. Verified against the Natural Programming
+Guide, "User-Defined Variables", which defines the `nn.m` form as "`nn` represents
+the number of positions before the decimal point, and `m` represents the number of
+positions after the decimal point". Learners routinely misread this as seven total,
+so the lesson should state it explicitly and show a value that fills the field.
+
+Documented limits worth teaching: `N` and `P` allow at most 29 positions, and `I`
+accepts only lengths 1, 2, or 4 (bytes).
 
 **Interpreter requirements (M-B):** parse the data block and level numbers; build a
 symbol table with typed slots; enforce that `DEFINE DATA` precedes executable

@@ -33,12 +33,22 @@ pub fn tokenize(source: &str) -> Result<Vec<Token>, NaturalError> {
             let (value, next) = read_text_literal(&chars, i, line)?;
             tokens.push(Token::Text { value, line });
             i = next;
+        } else if c == '(' || c == ')' {
+            // Parentheses delimit a format specification, so they are their own tokens
+            // whether or not the source puts a space around them.
+            tokens.push(Token::Word {
+                text: c.to_string(),
+                line,
+            });
+            i += 1;
         } else {
             let start = i;
             while i < chars.len()
                 && !chars[i].is_whitespace()
                 && chars[i] != '\''
                 && chars[i] != '\n'
+                && chars[i] != '('
+                && chars[i] != ')'
             {
                 i += 1;
             }

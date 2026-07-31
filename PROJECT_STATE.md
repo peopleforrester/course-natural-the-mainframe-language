@@ -1,6 +1,6 @@
 # Project State: course-natural-the-mainframe-language
 
-Phase: 3.3 Promote (M-A shipped)
+Phase: 2.3 Verify (M-B complete, awaiting spike 07 for output formatting)
 Approved: 2026-07-22T18:45:25Z by Michael (sha256:135613afc4c9)
 
 ## Lifecycle
@@ -51,13 +51,13 @@ spec section 8 (v1 scope depth, confirm Rust, product intent, public-repo timing
 ## Branch & Tests
 - Branch: staging
 - Working tree: clean after the M-A commit
-- Tests: 9 passing (`cargo test --workspace`), clippy clean under `-D warnings`,
+- Tests: 31 passing (`cargo test --workspace`), clippy clean under `-D warnings`,
   `cargo fmt --check` clean
 - Toolchain: rustc 1.97.1 via the pinned `rust-toolchain.toml`, which independently
   confirmed the version claim in spike 06
-- Wasm: `cargo build -p natural-core --target wasm32-unknown-unknown` succeeds. The
-  day-one wasm check from the gotchas doc is settled for the core crate. The
-  `rust_decimal` wasm question stays open until M-B adds the dependency.
+- Wasm: `cargo build -p natural-core --target wasm32-unknown-unknown` succeeds with
+  `rust_decimal` and `thiserror` in the tree, which settles both the day-one wasm check
+  and the open `rust_decimal` wasm question from the gotchas doc.
 - Verification: `scripts/verify.sh` is the gate, enforced by a pre-push hook.
   No hosted CI by decision. Install the hook on a fresh clone with
   `scripts/install-hooks.sh`.

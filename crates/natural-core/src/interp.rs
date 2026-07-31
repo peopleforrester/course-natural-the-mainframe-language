@@ -2,7 +2,9 @@
 // ABOUTME: program counter, never Rust recursion, so it can pause for INPUT in Tier 2.
 
 use crate::error::NaturalError;
-use crate::parser::{Program, Statement};
+use crate::parser::{Operand, Program, Statement};
+use crate::value::{Format, Value, coerce};
+use std::collections::BTreeMap;
 
 /// One observable effect of advancing the interpreter.
 ///
@@ -16,27 +18,115 @@ pub enum Step {
     Done,
 }
 
+/// A declared field: what it may hold, and what it currently holds.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Field {
+    pub format: Format,
+    pub value: Value,
+}
+
 pub struct Interpreter {
     program: Program,
+    fields: BTreeMap<String, Field>,
     pc: usize,
 }
 
 impl Interpreter {
     pub fn new(program: Program) -> Self {
-        Self { program, pc: 0 }
+        let mut fields = BTreeMap::new();
+        for declaration in &program.declarations {
+            fields.insert(
+                declaration.name.clone(),
+                Field {
+                    value: declaration.format.default_value(),
+                    format: declaration.format.clone(),
+                },
+            );
+        }
+        Self {
+            program,
+            fields,
+            pc: 0,
+        }
     }
 
-    /// Advances by one statement. Returns [`Step::Done`] once the program is exhausted.
-    pub fn step(&mut self) -> Result<Step, NaturalError> {
-        let Some(statement) = self.program.statements.get(self.pc) else {
-            return Ok(Step::Done);
-        };
-        self.pc += 1;
+    pub fn fields(&self) -> &BTreeMap<String, Field> {
+        &self.fields
+    }
 
-        match statement {
-            // WRITE emits its operands separated by a single space. A bare WRITE emits
-            // a blank line, which is how Natural programs space their output.
-            Statement::Write { operands } => Ok(Step::Output(operands.join(" "))),
+    /// Advances until the next observable effect. Returns [`Step::Done`] once the program
+    /// is exhausted.
+    ///
+    /// Statements that produce no output advance the loop rather than calling `step`
+    /// again, because statement execution must never recurse on the Rust call stack. A
+    /// recursive evaluator could not be paused, and pausing is what INPUT will require.
+    pub fn step(&mut self) -> Result<Step, NaturalError> {
+        loop {
+            let Some(statement) = self.program.statements.get(self.pc).cloned() else {
+                return Ok(Step::Done);
+            };
+            self.pc += 1;
+
+            match statement {
+                // WRITE emits its operands separated by a single space. A bare WRITE emits
+                // a blank line, which is how Natural programs space their output.
+                Statement::Write { operands } => return Ok(Step::Output(operands.join(" "))),
+
+                Statement::Move {
+                    source,
+                    target,
+                    line,
+                } => {
+                    let value = self.resolve(&source)?;
+                    let format = self.format_of(&target, line)?;
+                    let coerced = coerce(value, &format, &target, line)?;
+                    self.assign(&target, coerced, line)?;
+                }
+
+                Statement::Reset { targets } => {
+                    for (name, line) in targets {
+                        let format = self.format_of(&name, line)?;
+                        self.assign(&name, format.default_value(), line)?;
+                    }
+                }
+            }
+        }
+    }
+
+    fn resolve(&self, operand: &Operand) -> Result<Value, NaturalError> {
+        match operand {
+            Operand::Literal(value) => Ok(value.clone()),
+            Operand::Variable { name, line } => self
+                .fields
+                .get(name)
+                .map(|f| f.value.clone())
+                .ok_or_else(|| NaturalError::UndeclaredVariable {
+                    name: name.clone(),
+                    line: *line,
+                }),
+        }
+    }
+
+    fn format_of(&self, name: &str, line: usize) -> Result<Format, NaturalError> {
+        self.fields
+            .get(name)
+            .map(|f| f.format.clone())
+            .ok_or_else(|| NaturalError::UndeclaredVariable {
+                name: name.to_string(),
+                line,
+            })
+    }
+
+    fn assign(&mut self, name: &str, value: Value, line: usize) -> Result<(), NaturalError> {
+        match self.fields.get_mut(name) {
+            Some(field) => {
+                field.value = value;
+                Ok(())
+            }
+            None => Err(NaturalError::UndeclaredVariable {
+                name: name.to_string(),
+                line,
+            }),
         }
     }
 }
