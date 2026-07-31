@@ -92,4 +92,21 @@ pub enum NaturalError {
         right: String,
         line: usize,
     },
+
+    #[error("Line {line}: this {keyword} was never closed. Add {closer} after its statements.")]
+    MissingLoopEnd {
+        keyword: String,
+        closer: String,
+        line: usize,
+    },
+
+    #[error("Line {line}: ESCAPE only works inside a loop. Put it inside a FOR or REPEAT block.")]
+    EscapeOutsideLoop { line: usize },
+
+    #[error(
+        "This program ran more than {limit} statements without finishing, so it was stopped. \
+         A REPEAT loop keeps going until something ends it: add an ESCAPE BOTTOM, or give it \
+         an UNTIL or WHILE condition that eventually becomes true."
+    )]
+    RunawayLoop { limit: usize },
 }

@@ -1,0 +1,16 @@
+DEFINE DATA LOCAL
+1 #I (I4)
+1 #PRICE (N5.2)
+END-DEFINE
+WRITE 'Three line items at'
+MOVE 19.99 TO #PRICE
+WRITE #PRICE
+FOR #I = 1 TO 3
+IF #I = 2
+WRITE 'item' #I '(the middle one)'
+ELSE
+WRITE 'item' #I
+END-IF
+END-FOR
+WRITE 'Done.'
+END

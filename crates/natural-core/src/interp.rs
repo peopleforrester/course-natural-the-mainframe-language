@@ -54,11 +54,21 @@ pub struct Field {
     pub value: Value,
 }
 
+/// How many statements a program may execute before it is assumed to be stuck.
+///
+/// This is a product requirement, not a tuning knob: lessons run in the learner's own
+/// browser tab, so an unbounded REPEAT must fail with a teaching error rather than freeze
+/// the page. Tier 1 programs execute a few hundred statements at most, so the default is
+/// several orders of magnitude clear of legitimate work.
+pub const DEFAULT_STEP_LIMIT: usize = 1_000_000;
+
 pub struct Interpreter {
     program: Program,
     fields: BTreeMap<String, Field>,
     pc: usize,
     pending_input: Option<PendingInput>,
+    steps: usize,
+    step_limit: usize,
 }
 
 impl Interpreter {
@@ -78,7 +88,20 @@ impl Interpreter {
             fields,
             pc: 0,
             pending_input: None,
+            steps: 0,
+            step_limit: DEFAULT_STEP_LIMIT,
         }
+    }
+
+    /// Overrides the runaway-loop cap. Lower it to keep tests fast; raise it only for a
+    /// lesson that genuinely needs more work than the default allows.
+    pub fn with_step_limit(mut self, limit: usize) -> Self {
+        self.step_limit = limit;
+        self
+    }
+
+    pub fn step_limit(&self) -> usize {
+        self.step_limit
     }
 
     pub fn fields(&self) -> &BTreeMap<String, Field> {
@@ -107,6 +130,16 @@ impl Interpreter {
                 return Ok(Step::Done);
             };
             self.pc += 1;
+
+            // Counting executed statements catches a runaway loop of any shape, including
+            // one built from jumps the learner wrote by hand, which counting iterations of
+            // a particular construct would miss.
+            self.steps += 1;
+            if self.steps > self.step_limit {
+                return Err(NaturalError::RunawayLoop {
+                    limit: self.step_limit,
+                });
+            }
 
             match statement {
                 // WRITE separates consecutive elements with exactly one blank. Literals are
@@ -168,7 +201,43 @@ impl Interpreter {
                     }
                 }
 
+                Statement::IfTrueJump {
+                    condition,
+                    target,
+                    line,
+                } => {
+                    if self.evaluate(&condition, line)? {
+                        self.pc = target;
+                    }
+                }
+
                 Statement::Jump { target } => self.pc = target,
+
+                Statement::ForInit {
+                    var,
+                    from,
+                    to,
+                    exit,
+                    line,
+                } => {
+                    let start = self.resolve(&from)?;
+                    let format = self.format_of(&var, line)?;
+                    let coerced = coerce(start, &format, &var, line)?;
+                    self.assign(&var, coerced, line)?;
+                    if !self.control_still_in_range(&var, &to, line)? {
+                        self.pc = exit;
+                    }
+                }
+
+                Statement::ForNext { var, to, top, line } => {
+                    let current = self.numeric_field(&var, line)?;
+                    let format = self.format_of(&var, line)?;
+                    let next = coerce(Value::Number(current + Decimal::ONE), &format, &var, line)?;
+                    self.assign(&var, next, line)?;
+                    if self.control_still_in_range(&var, &to, line)? {
+                        self.pc = top;
+                    }
+                }
 
                 Statement::Input { prompt, targets } => {
                     // Fail fast on an undeclared field rather than suspending and only
@@ -230,6 +299,40 @@ impl Interpreter {
             }
         };
         Ok(condition.op.holds(ordering))
+    }
+
+    /// True while a FOR control field has not yet passed its upper bound.
+    fn control_still_in_range(
+        &self,
+        var: &str,
+        to: &Operand,
+        line: usize,
+    ) -> Result<bool, NaturalError> {
+        let current = self.numeric_field(var, line)?;
+        let Value::Number(limit) = self.resolve(to)? else {
+            return Err(NaturalError::IncomparableValues {
+                left: "a number".to_string(),
+                right: "text".to_string(),
+                line,
+            });
+        };
+        Ok(current <= limit)
+    }
+
+    /// Reads a field that a loop requires to be numeric.
+    fn numeric_field(&self, name: &str, line: usize) -> Result<Decimal, NaturalError> {
+        match self.fields.get(name).map(|f| &f.value) {
+            Some(Value::Number(n)) => Ok(*n),
+            Some(other) => Err(NaturalError::IncomparableValues {
+                left: other.describe_kind().to_string(),
+                right: "a number".to_string(),
+                line,
+            }),
+            None => Err(NaturalError::UndeclaredVariable {
+                name: name.to_string(),
+                line,
+            }),
+        }
     }
 
     fn resolve(&self, operand: &Operand) -> Result<Value, NaturalError> {
