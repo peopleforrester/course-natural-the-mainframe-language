@@ -8,10 +8,10 @@ in-browser terminal on the right.
 
 Source files in the Unleash repo:
 
-- `gitops/ai-layer/web/lab.html` — the split-pane frontend
-- `images/web-terminal/Dockerfile` — the ttyd terminal container
-- `images/web-terminal/entrypoint.sh` — environment wiring + ttyd launch
-- `gitops/ai-layer/console.conf` — nginx front door that proxies the terminal
+- `gitops/ai-layer/web/lab.html`: the split-pane frontend
+- `images/web-terminal/Dockerfile`: the ttyd terminal container
+- `images/web-terminal/entrypoint.sh`: environment wiring + ttyd launch
+- `gitops/ai-layer/console.conf`: nginx front door that proxies the terminal
 
 ## The three layers
 
@@ -19,10 +19,10 @@ Source files in the Unleash repo:
 
 A flexbox page, full viewport height, no body scroll:
 
-- `header` — brand bar with external links (buttons that open sibling tabs).
-- `.crumb` — breadcrumb with identity pulled from URL query params
+- `header`: brand bar with external links (buttons that open sibling tabs).
+- `.crumb`: breadcrumb with identity pulled from URL query params
   (`?cluster=&user=&role=`), so a link can carry per-student context.
-- `.split` — the two-column body:
+- `.split`: the two-column body:
   - `.guide` (left, ~40%, `max-width:560px`, `min-width:340px`, scrolls
     independently). Holds `.step` cards that are **collapsible** (closed by
     default, open state persisted per step in `localStorage`), and `.cmd`
@@ -64,13 +64,13 @@ exec ttyd -p 7681 -W -b /terminal -t fontSize=14 \
 
 Key flags:
 
-- `-p 7681` — listen port.
-- `-W` — **writable** terminal (interactive input allowed). Without it the
+- `-p 7681`: listen port.
+- `-W`: **writable** terminal (interactive input allowed). Without it the
   terminal is read-only.
-- `-b /terminal` — serve under the base path `/terminal` so the front door can
+- `-b /terminal`: serve under the base path `/terminal` so the front door can
   reverse-proxy it on a subpath.
-- `-t ...` — xterm theming (font size, colors).
-- Trailing `bash --rcfile ...` — the command ttyd runs. **This is the swap
+- `-t ...`: xterm theming (font size, colors).
+- Trailing `bash --rcfile ...`: the command ttyd runs. **This is the swap
   point**: replace `bash` (or the rcfile it sources) with the Natural
   runtime/REPL to make the terminal a Natural session.
 
