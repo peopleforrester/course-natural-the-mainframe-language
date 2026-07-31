@@ -214,9 +214,9 @@ pub fn render_field(value: &Value, format: &Format) -> String {
         (Value::Number(n), Format::Integer { .. }) => {
             right_justify(&format!("{}", n.trunc()), width)
         }
-        // The default edit mask for a logical field is documented as "blank / X", so false
-        // prints as a blank and true as an X. Marked DERIVED in the formatting spike
-        // because no worked example exists, so lessons should use an explicit EM= instead.
+        // A logical field with no edit mask prints a blank for false and an X for true.
+        // Upgraded from DERIVED to VERIFIED on 2026-08-01: stated verbatim in the Natural
+        // statements reference, sm/compress.htm.
         (Value::Logical(b), Format::Logical) => if *b { "X" } else { " " }.to_string(),
         // coerce keeps values and formats in step, so this arm is unreachable in practice.
         _ => " ".repeat(width),

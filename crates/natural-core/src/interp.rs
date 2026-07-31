@@ -86,7 +86,14 @@ impl Interpreter {
                             }
                         });
                     }
-                    return Ok(Step::Output(parts.join(" ")));
+                    // Padding BETWEEN elements is documented and verified, so it is built
+                    // above and never touched. Trailing blanks at end of line are a
+                    // different question: verification could not establish either way
+                    // whether Natural emits them, and most documentation examples show
+                    // them absent. They are invisible in a terminal, so this interpreter
+                    // trims them as a deliberate course convention. See
+                    // research/verification/v07-output-formatting.md.
+                    return Ok(Step::Output(parts.join(" ").trim_end().to_string()));
                 }
 
                 Statement::Move {

@@ -2,6 +2,35 @@
 
 Spike date: 2026-07-31
 
+> **Verified 2026-08-01.** This spike was adversarially re-verified; see
+> `research/verification/v07-output-formatting.md`.
+>
+> **The core model SURVIVED.** The sign-position rule and the numeric width formula were
+> confirmed verbatim in `sm/display.htm` and `parms/sp_sg.htm`, corroborated by 14
+> character-counted measurements across 11 programs, and then tested against every
+> DISPLAY underline row in 535 downloaded pages. No counterexample exists.
+>
+> Defects found and corrected:
+> - **Do not encode the default mask as the literal string `Z9`.** An explicit `EM=Z9` on
+>   an `N7.2` field truncates it to two digits. Encode the RULE (suppress leading zeros,
+>   force the units digit, force decimals), never the string.
+> - The `(P7.2) ... 1 sign position` citation here refers to packed STORAGE, not print
+>   width. The conclusion is right, the citation was wrong.
+> - The claim that trailing blanks survive to end of line is **unverifiable**, and most
+>   documentation examples show the opposite. Mid-line padding IS verified.
+> - `<pre>` blocks are not universally safe for absolute column measurement: `WRTEX2` is
+>   silently dedented by 5 columns. Trust absolute columns only when a block self-checks.
+> - Two official pages publish contradictory output for the identical `EMLOGV` program.
+>
+> All four previously UNVERIFIED items are now resolved: bare `WRITE` is a syntax error
+> (`sm/synsym.htm` is live, not a 404); an unmasked logical prints blank or `X`
+> (`sm/compress.htm`, verbatim); an insertion character inside a fully suppressed region is
+> not emitted at all; and the overflow errors are NAT1301, NAT1302, NAT1304, NAT1305, with
+> NAT0271 for DISPLAY line overflow. `I4` and `N7.2` widths were upgraded from DERIVED to
+> VERIFIED via `RSTEX1`. `I2` remains derived, now bracketed by measured `I1` and `I4`.
+
+
+
 ## Documentation baseline
 
 All quotes and measurements in this document come from the Software AG product
