@@ -35,6 +35,11 @@ pub enum Statement {
     Reset {
         targets: Vec<(String, usize)>,
     },
+    Input {
+        /// An optional literal shown before reading. Without one, the field name is used.
+        prompt: Option<String>,
+        targets: Vec<(String, usize)>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -157,6 +162,10 @@ fn parse_line(
         }
         "RESET" => {
             program.statements.push(parse_reset(tokens, line)?);
+            Ok(false)
+        }
+        "INPUT" => {
+            program.statements.push(parse_input(tokens, line)?);
             Ok(false)
         }
         _ => {
@@ -340,6 +349,36 @@ fn parse_reset(tokens: &[Token], line: usize) -> Result<Statement, NaturalError>
         });
     }
     Ok(Statement::Reset { targets })
+}
+
+fn parse_input(tokens: &[Token], line: usize) -> Result<Statement, NaturalError> {
+    // INPUT ['prompt'] #FIELD [#FIELD ...]
+    let mut prompt = None;
+    let mut targets = Vec::new();
+
+    for token in &tokens[1..] {
+        match token {
+            Token::Text { value, .. } => {
+                if prompt.is_some() || !targets.is_empty() {
+                    return Err(NaturalError::NotYetSupported {
+                        feature: "more than one prompt in a single INPUT".to_string(),
+                        line,
+                    });
+                }
+                prompt = Some(value.clone());
+            }
+            Token::Word { text, line: l } => targets.push((normalize(text), *l)),
+            Token::Newline => {}
+        }
+    }
+
+    if targets.is_empty() {
+        return Err(NaturalError::UnknownStatement {
+            name: "INPUT without a field to read into, as in INPUT #NAME".to_string(),
+            line,
+        });
+    }
+    Ok(Statement::Input { prompt, targets })
 }
 
 fn operand_from(token: &Token, line: usize) -> Result<Operand, NaturalError> {

@@ -197,3 +197,32 @@ One trap worth remembering: the default numeric mask must be encoded as a RULE, 
 literal mask string `Z9`. An explicit `EM=Z9` on an N7.2 field truncates it to two digits.
 This interpreter already encodes the rule, so no change was needed, but a future edit-mask
 implementation could easily get it wrong.
+
+## 2026-08-01T00:00:00Z · 2.2 · Milestone M-C1: INPUT, and the architecture bet is proven
+
+Implemented INPUT as a resumable suspension, test-first, 16 acceptance tests. This is the
+milestone that validates the whole client-side design: the interpreter now genuinely stops
+mid-program, returns control to its caller, and resumes with execution state intact. Until
+now the state machine was a constraint we were honoring on faith.
+
+Design points worth recording:
+
+- `Step` gained `NeedsInput(InputRequest)`. The payload is a struct, not a bare prompt
+  string, specifically so a Tier 2 map read can grow it into a screen (fields, attributes,
+  cursor) without changing the enum shape or the resume protocol. That is the screen-buffer
+  constraint from spike 08 honored at the earliest point it could be.
+- One INPUT may read several fields, so the interpreter suspends once per field and keeps
+  its position in a `PendingInput` struct rather than on the call stack. Calling `step`
+  again without supplying a value re-asks rather than skipping the field, which is the
+  behavior a browser event loop will actually produce.
+- Undeclared fields are rejected when INPUT is reached, not after the learner has typed
+  something, so the error arrives before the wasted keystrokes.
+- Input text is converted through the same `coerce` path as MOVE, so length, precision, and
+  overflow rules cannot drift between the two.
+- `run` now refuses a program containing INPUT with a clear InputRequired error instead of
+  silently skipping the read. `run_with_input` drives the suspension for tests and lessons,
+  and records every prompt so a lesson can assert that an exercise asked what it should.
+
+Line-mode prompt rendering (literal if given, else the field name) is recorded as a course
+convention rather than a Natural fact, because real Natural presents a map instead of
+prompting field by field.

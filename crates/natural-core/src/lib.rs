@@ -8,7 +8,8 @@ mod parser;
 mod value;
 
 pub use error::NaturalError;
-pub use interp::{Field, Interpreter, Step};
+pub use interp::{Field, InputRequest, Interpreter, Step};
+pub use parser::{Program, parse as parse_program};
 pub use value::{Format, Value, print_width, render_field};
 
 /// Re-exported so callers can build and compare numeric values without depending on the
@@ -22,6 +23,9 @@ pub use rust_decimal::Decimal;
 #[derive(Debug, Clone)]
 pub struct Outcome {
     pub lines: Vec<String>,
+    /// Every prompt the program showed, in order. Lessons assert against these to check
+    /// that an exercise asked for what it was supposed to ask for.
+    pub prompts: Vec<String>,
     fields: std::collections::BTreeMap<String, Field>,
 }
 
@@ -42,16 +46,42 @@ impl Outcome {
     }
 }
 
-/// Runs a program to completion, returning its output and final field values.
+/// Runs a program that asks for no input.
+///
+/// A program containing INPUT fails with [`NaturalError::InputRequired`] rather than
+/// silently skipping the read. Use [`run_with_input`] for those.
 pub fn run(source: &str) -> Result<Outcome, NaturalError> {
+    run_with_input(source, &[])
+}
+
+/// Runs a program to completion, answering each INPUT from `inputs` in order.
+pub fn run_with_input(source: &str, inputs: &[&str]) -> Result<Outcome, NaturalError> {
     let program = parser::parse(source)?;
     let mut interp = Interpreter::new(program);
     let mut lines = Vec::new();
-    while let Step::Output(line) = interp.step()? {
-        lines.push(line);
+    let mut prompts = Vec::new();
+    let mut supplied = 0;
+
+    loop {
+        match interp.step()? {
+            Step::Output(line) => lines.push(line),
+            Step::NeedsInput(request) => {
+                prompts.push(request.prompt.clone());
+                let Some(value) = inputs.get(supplied) else {
+                    return Err(NaturalError::InputRequired {
+                        prompt: request.prompt,
+                    });
+                };
+                supplied += 1;
+                interp.provide_input(value)?;
+            }
+            Step::Done => break,
+        }
     }
+
     Ok(Outcome {
         lines,
+        prompts,
         fields: interp.fields().clone(),
     })
 }

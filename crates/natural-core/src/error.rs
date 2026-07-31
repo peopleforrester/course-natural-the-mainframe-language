@@ -61,4 +61,18 @@ pub enum NaturalError {
 
     #[error("Line {line}: {feature} is not available yet in this course build.")]
     NotYetSupported { feature: String, line: usize },
+
+    #[error("Line {line}: '{text}' is not a valid value for '{name}', which holds {expected}.")]
+    InvalidInput {
+        text: String,
+        name: String,
+        expected: String,
+        line: usize,
+    },
+
+    #[error("This program asks for input ({prompt}), so it cannot be run without supplying any.")]
+    InputRequired { prompt: String },
+
+    #[error("The program is not waiting for input right now.")]
+    NotWaitingForInput,
 }
