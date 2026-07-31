@@ -121,3 +121,52 @@ every lesson's expected-output fixture will depend on them.
 
 Verified: 31 tests pass, clippy clean under -D warnings, fmt clean, and the wasm build
 now succeeds with `rust_decimal` in the tree, settling that open question.
+
+## 2026-08-01T00:00:00Z · 2.3 · Adversarial verification pass; factual corrections applied
+
+Michael asked for the research to be re-run and verified as factually as possible. Eight
+agents ran: five adversarial fact-checks instructed to REFUTE rather than confirm, plus
+three new spikes (07 output formatting, 08 mainframe emulators and 3270, 09 curriculum
+validation). Verdict tables are in `research/verification/`.
+
+Material errors found and corrected, worst first:
+
+1. **Supported platforms were wrong.** z/VSE, BS2000/OSD, and legacy Unix are retired with
+   elapsed end-of-maintenance dates (2023-06-30, 2023-12-31, 2024-12-31). Current
+   platforms are z/OS and Linux, plus Windows and containers. The course would have taught
+   three dead platforms as live.
+2. **"Near-total competition gap" was false.** At least six live independent providers sell
+   Natural training, Software AG's own modules are free with a badge, and a German
+   textbook exists (ISBN 978-3-86541-994-1) that English-only searching missed. The
+   differentiator is now format and quality, not novelty. Udemy and Pluralsight were never
+   actually checked and are marked UNKNOWN, because a failed fetch had been written up as
+   evidence of absence.
+3. **The Futurum 79 percent statistic was misquoted and its report argues the opposite.**
+   Withdrawn. Forrester and Compuware 23/63 verified to the primary release and stand.
+4. **The Community Edition licensing ARGUMENT was wrong; the conclusion survives.** The
+   binding EULA grants use "for your internal production use" and never says "personal use
+   only". The real bars are the integrated-solution, no-rent/no-sublicense, and
+   no-distribution clauses, plus a confidentiality clause that also constrains publishing
+   CE screenshots in lesson content. No academic license path exists. The contract term is
+   unchanged and the case for owning our interpreter is stronger.
+5. **"First released 1979" has no primary source.** Development is documented from 1975
+   under Peter Page with Margit Neumann.
+6. **Toolchain corrections:** `thread_local` was itself deprecated, so the gotchas doc was
+   pointing at a dead API; `thread_local_v2` is correct. The rustwasm sunset post told
+   users to fork wasm-pack and gloo rather than transferring them. JSPI shipped unflagged
+   in Firefox 153, leaving Safari as the sole blocker, which does not change the
+   architecture. `segeljakt/xterm-js-rs` is a trap: it binds xterm.js 4.x while we target
+   6.0.0.
+
+Curriculum: validated against seven real published sequences including Software AG's own
+five-day course. It holds up. One genuine defect, INPUT was absent from Tier 1 despite the
+architecture being shaped around it, so INPUT joins module 5 and the yield machinery gets
+exercised in v1. The loops-before-database ordering was upheld conditional on module 8
+naming the vendor's database-loops distinction.
+
+New architecture constraint from spike 08: the screen buffer must be first-class in the
+interpreter's execution state from the start, because a map read is a yield point like
+INPUT. Recorded in CLAUDE.md beside the state-machine constraint.
+
+Contract terms are unchanged. What changed is the accuracy of the justifications behind
+them, and in every case the corrected facts still support the sealed decisions.

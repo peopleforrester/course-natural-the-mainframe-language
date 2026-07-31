@@ -57,7 +57,20 @@ Binding until amended via `/prd-amend` and re-approval:
   Tier 2 ships.
 - Repo stays **private** through the build.
 - **Do not** host the free Adabas & Natural Community Edition as the course backend.
-  Its license is personal-use-only and prohibits commercial production use.
+  The contract term is unchanged, but its justification was **reworded 2026-08-01**
+  because the original reasoning was wrong. The binding Docker EULA (v2025.1) does
+  **not** say "personal use only"; it actually grants use "for your internal
+  production use". That phrase appears only as marketing copy on one web page, and
+  appears in neither the CE Guide nor the EULA. The real bars are the
+  integrated-solution clause, the no-rent and no-sublicense clause, and the
+  no-distribution clause. There is no academic or education license path; every
+  University Relations page is now a soft-404. The only legal route to a real
+  runtime is a negotiated commercial license from a company that also sells
+  competing training. This strengthens the decision to own our interpreter.
+
+- **Confidentiality clause: do not publish Community Edition screenshots** in course
+  material. The CE license carries a confidentiality obligation that constrains
+  reproducing what the product shows, which matters for authoring lesson content.
 
 ## Product requirements that are easy to mistake for implementation details
 
