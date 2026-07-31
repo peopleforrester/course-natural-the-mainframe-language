@@ -44,10 +44,22 @@ mass-market course. Facts from the spikes:
   sell Natural and Adabas training (MaxMunus, igmGuru, Koenig, Verhoef,
   Vistasparks, Nisa), and Software AG's own Digital Essentials modules for
   Natural, Adabas, and NaturalONE are **free** and carry a certified badge.
-  What remains true, and is the actual differentiator, is that every incumbent is
-  either instructor-led classroom training or slide-and-video self-study. **None
-  of them lets a learner write and run real Natural code in a browser.** The
-  course competes on format and quality, not on novelty.
+  What remains true, and is the actual differentiator, is that every incumbent we
+  could verify is either instructor-led classroom training or slide-and-video
+  self-study. **None of them lets a learner write and run real Natural code in a
+  browser.** The course competes on format and quality, not on novelty.
+
+  Two further corrections to the competitive picture, 2026-08-01:
+  - **Udemy and Pluralsight were never actually checked.** The original spike
+    recorded "none found", but Udemy returns HTTP 403 behind Cloudflare and
+    Pluralsight renders client-side, so a failed check was written up as evidence
+    of absence. Coursera, LinkedIn Learning, and edX are genuinely empty. Treat
+    Udemy and Pluralsight as **unknown** until checked by hand.
+  - **An independently authored textbook exists**, missed because every search ran
+    in English only: Michael Schlüter, *Einführung in die Programmierung mit
+    Natural & Adabas*, Lehmanns Media, 2019, 352 pages, ISBN 978-3-86541-994-1. A
+    German training provider (SCN GmbH) was missed the same way. The
+    German-language market is a real segment that no one has surveyed properly.
 - **Correction to the founding premise.** The University of Texas is a major
   operational *user* of Natural/ADABAS (its degree-audit system has run on it since
   1985, and it is the most Natural-heavy organization Sumble tracks), but there is
@@ -84,10 +96,22 @@ portfolio and marketing piece regardless of direct course revenue.
 - **Current versions (as of July 2026):** two lines, Natural for z/OS 9.2.x (9.2.4)
   and Natural for Linux/Cloud 9.3.x (9.3.3); NaturalONE 9.3.3 (spike 01). The course
   targets language semantics common across current versions, not a single build.
-- **Licensing reality that shapes the architecture:** a free Adabas & Natural
-  Community Edition (Docker) exists in 2026 but is **personal-use only, commercial
-  production prohibited**. Hosting it per-student in a paid course is outside that
-  license (spike 05). This is the wall that pushes us to own our runtime.
+- **Licensing reality that shapes the architecture. Reasoning corrected
+  2026-08-01; conclusion unchanged.** A free Adabas & Natural Community Edition
+  (Docker) exists in 2026. An earlier draft said it is "personal-use only,
+  commercial production prohibited". That is **not** what the binding document
+  says: the Docker EULA (v2025.1) grants use "for your internal production use",
+  and the "personal use only" phrasing is marketing copy on a single web page,
+  absent from both the CE Guide and the EULA.
+  The conclusion survives on firmer ground. Hosting the CE as a paid course's
+  per-student backend is barred by the integrated-solution clause, the no-rent and
+  no-sublicense clause, and the no-distribution clause. A confidentiality clause
+  additionally constrains publishing CE screenshots in course material. No
+  academic or education license path exists; every University Relations page is a
+  soft-404. The only legal route to a real runtime is a negotiated commercial
+  license from a company that also sells competing training, which is precisely
+  the dependency we should not accept. **This strengthens the case for owning our
+  interpreter rather than weakening it.**
 
 ## 4. Technical architecture
 

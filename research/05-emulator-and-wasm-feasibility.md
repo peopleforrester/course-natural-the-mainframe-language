@@ -2,6 +2,24 @@
 
 Spike date: 2026-07-19
 
+> **Corrections applied 2026-08-01.** This spike was adversarially re-verified. See
+> `research/verification/` for the verdict tables. Known defects found in this file:
+> - The licensing ARGUMENT is wrong, though the conclusion stands. The binding Docker EULA
+>   (v2025.1) does not say "personal use only"; it grants use "for your internal production
+>   use". That phrase is marketing copy on one web page and is in neither the CE Guide nor
+>   the EULA. The real bars are the integrated-solution, no-rent/no-sublicense, and
+>   no-distribution clauses, plus a confidentiality clause this spike missed that also
+>   constrains publishing CE screenshots in course material.
+> - No academic or education license path exists; every University Relations page is now a
+>   soft-404. The only legal route to a real runtime is a negotiated commercial license.
+> - `segeljakt/xterm-js-rs`, described here as "close to the exact stack recommended here",
+>   is a trap: its last release is 0.1.2 from November 2021 and it binds xterm.js 4.x while
+>   this project targets `@xterm/xterm` 6.0.0. It is MIT only, not dual licensed.
+> - `cryptool-org/wasm-webterm` is Apache-2.0, not MIT.
+> Where this file and its verification file disagree, the verification file wins.
+
+
+
 ## Executive summary
 
 Natural does not need a physical mainframe. The vendor ships a real, off-mainframe

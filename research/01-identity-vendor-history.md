@@ -5,6 +5,23 @@
 
 Spike date: 2026-07-19
 
+> **Corrections applied 2026-08-01.** This spike was adversarially re-verified. See
+> `research/verification/` for the verdict tables. Known defects found in this file:
+> - The supported-platform list is materially wrong. z/VSE, Fujitsu BS2000/OSD, and legacy
+>   Unix (AIX, Solaris, HP-UX) are all retired with elapsed end-of-maintenance dates
+>   (2023-06-30, 2023-12-31, and 2024-12-31 respectively). Current platforms are IBM z/OS
+>   and Linux, plus Windows and containers.
+> - "First released in 1979" has no primary source. Two sources date the development work
+>   to 1975 under Peter Page with Margit Neumann. Do not publish 1979 unqualified.
+> - The "through 2050 and beyond" line is not a support guarantee and is misquoted here.
+>   The real release is dated 2016-08-31 and frames it as an agenda.
+> - TrendMiner went to Proemion, not to IBM.
+> - CONFIRMED unchanged: Silver Lake ownership via Software GmbH, IBM taking only
+>   webMethods and StreamSets, and all five current GA version numbers.
+> Where this file and its verification file disagree, the verification file wins.
+
+
+
 ## Executive summary
 
 - Natural is a proprietary fourth-generation programming language (4GL) created by Software AG (Darmstadt, Germany), first released in 1979, primarily developed by Peter Pagé. It is the application language most tightly paired with Software AG's ADABAS database and runs on IBM Z mainframes (z/OS, z/VSE), Fujitsu BS2000, and open systems (Linux, Unix, Windows), with cloud/container support.

@@ -5,6 +5,25 @@ ABOUTME: Informs the go/no-go decision on publishing a "learn Natural" course. -
 
 Spike date: 2026-07-19
 
+> **Corrections applied 2026-08-01.** This spike was adversarially re-verified. See
+> `research/verification/` for the verdict tables. Known defects found in this file:
+> - The Futurum "79 percent" statistic is misquoted and the report argues the opposite of
+>   how it was used here. Withdrawn. The Forrester and Compuware 23 percent / 63 percent
+>   figures verified to the primary release and stand.
+> - "Almost no competing structured instruction" is false: at least six live independent
+>   providers sell Natural training, and Software AG's own Digital Essentials modules are
+>   free with a certified badge, not priced high as claimed elsewhere in this file.
+> - Contractor rates are overstated. Observed 2026-08-01: roughly 47 to 84 dollars per
+>   hour, not 55 to 86. The salary figures are unreproducible and are UNVERIFIED.
+> - The UT Austin present-tense claim rests on a 1999 EDUCAUSE source. Better current
+>   evidence exists: a UT Austin job posting requiring Natural and ADABAS experience.
+> - The Sumble ranking is overstated; it infers from job postings and never defines "team".
+> - CONFIRMED: job volume of 8 to 59 across five boards, and that no university teaches
+>   Natural for credit (re-tested harder).
+> Where this file and its verification file disagree, the verification file wins.
+
+
+
 ## Executive summary
 
 Natural is a Software AG fourth-generation language that runs against the ADABAS inverted-list database, mostly on IBM z/OS mainframes. It is real, it is still in production at large government and financial institutions, and the people who know it are retiring. That combination is the whole investment thesis for a course, and it is also the reason to be cautious.

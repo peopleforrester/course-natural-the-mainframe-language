@@ -82,7 +82,7 @@ wrong, because the spike read a documentation index page that was frozen in Octo
 | Third-party instructor-led providers are "Verhoef (UK), Nisa Trainings and MaxMunus (India)" | 04 sec. 4 | INCOMPLETE | At least one German provider is missing: SCN GmbH (Berlin) lists Software AG among its vendor catalogue and search results surface "Natural Programmierung" and "Adabas Grundlagen" seminars with a Durchfuhrungsgarantie across roughly 19 German cities. Caveat: both specific seminar URLs return HTTP 404 today and the site root returns 500, so the offering itself is **UNVERIFIED**, only the provider's Software AG catalogue entry is confirmed. Same English-only blind spot as the book. | https://www.scngmbh.de/ | 2026-08-01 |
 | "Software AG Certified Natural Associate" Credly badge exists | 04 (implied), task item 9 | CONFIRMED | Live badge page. Issuer Software AG. Type: learning badge, Foundational level. Skills: ADABAS, Natural. Earning criteria, verbatim: "(For External Users) - Natural Programming Basic Course" and "(For Internal Users) - Natural Programming Basic Course". So the badge is awarded for course completion, with no separate proctored exam. | https://www.credly.com/org/software-ag/badge/software-ag-certified-natural-associate | 2026-07-31 |
 | "Natural Programming Basic (course id 1467)" is free | 04 sec. 4 | CONFIRMED indirectly; the page itself is UNVERIFIABLE anonymously | `learn.softwareag.com/course/info.php?id=1467` returns HTTP 200 but the body is a JavaScript SPA shell that renders only the word "Loading" to an anonymous fetch, so no content, price, or outline can be read without an account. The spike's "login-gated" characterisation is right in effect. Free status is corroborated by an official Tech Community post: the Digital Essentials self-paced trainings, which include Natural Programming and NaturalONE basics, are "free and self-paced", require creating a free Software AG Learning account, and award a "Software AG Certified digital badge". | https://techcommunity.softwareag.com/t/introducing-free-training-essentials-for-adabas-natural/259320 | 2026-08-01 |
-| `learn.softwareag.com` course IDs 1423, 1426, 1467 and categoryid 44 | 04 sec. 4 | CONFIRMED as live URLs, UNVERIFIED as content | All four return HTTP 200 but render the same anonymous SPA shell. A `knowledge.softwareag.com` variant surfaced in search results does not resolve at all (DNS failure), so ignore it. | https://learn.softwareag.com/course/view.php?id=1423 | 2026-07-31 |
+| `learn.softwareag.com` course IDs 1423, 1426, 1467 and categoryid 44 are cited as evidence those courses exist | 04 sec. 4 and sources | UNVERIFIED, and the HTTP 200s are worthless as evidence | The site is a **Docebo** single-page app (the served HTML is stamped "DOCEBO LIBRARIES / Docebo UI: v1.149.0"), not the Moodle the `/course/info.php?id=` URL shape implies. It returns **HTTP 200 with the same "Loading" shell for every path**, verified by requesting `id=999999`, `id=12345678`, and `/this/path/does/not/exist/at/all`, all of which also return 200. A 200 from this host therefore says nothing about whether a course ID exists. The four cited URLs are not evidence of anything. The course catalogue's existence rests on search-result titles, the 2022 Tech Community post, and the Credly badge, which is the strongest independent artifact because its earning criterion names the Natural Programming Basic course directly. Separately, a `knowledge.softwareag.com` variant that appears in search results is **NXDOMAIN** (confirmed against 8.8.8.8), so ignore it. | https://learn.softwareag.com/course/info.php?id=999999 | 2026-08-01 |
 | Verhoef, Nisa Trainings, and MaxMunus third-party courses | 04 sec. 4 | CONFIRMED as live | All three URLs return HTTP 200 today. Pricing remains quote-on-request; not independently re-priced. | https://verhoef-training.co.uk/system-z-programming/adabas-natural-programming | 2026-07-31 |
 | edX shows "A topic landing page for 'Adabas' only, no actual course" | 04 sec. 4 | CONFIRMED | The page renders 17 certificate programs and 48 courses, all generic SQL / database / data engineering titles. Nothing about Adabas or Software AG Natural. | https://www.edx.org/learn/adabas | 2026-07-31 |
 | "`techcommunity.softwareag.com/c/adabas-natural/` ... this is the current canonical home" | 04 sec. 5 | REFUTED | That URL returns **HTTP 404**. The Discourse instance has been restructured to five top-level categories only: `forum` (7,304 topics), `feedback` (776), `knowledge-base` (203), `news` (56), `user-groups` (8). There is no Adabas-Natural category. Adabas and Natural content is now reachable via the tag route `techcommunity.softwareag.com/tag/adabas-natural` (HTTP 200). | https://techcommunity.softwareag.com/categories.json | 2026-08-01 |
@@ -102,18 +102,30 @@ wrong, because the spike read a documentation index page that was frozen in Octo
 | `tsl0922/ttyd` is MIT and "Actively maintained" | 05 GitHub table | CONFIRMED | MIT, 12,128 stars, last push 2026-06-30. | https://api.github.com/repos/tsl0922/ttyd | 2026-08-01 |
 | "EMPLOYEES and VEHICLES demo files ... shipped with the product and the Community Edition demo database" | 04 sec. 2 and sec. 6 | CONFIRMED | Adabas ships Employees, Vehicles, Personnel, and Miscellaneous demo files. The CE creates the demo database via `ADABAS_DB_CREATION=demodb`, and the CE Guide notes "the Natural Demo Application is also delivered with the Natural Community Edition". Caveat worth carrying into course design: the CE Guide states "Data changes to this demo database are not persisted" unless a directory is mounted, which is consistent with the per-lesson state reset the course already requires. | https://documentation.softwareag.com/adabas/ada854mfr/util/apxc.htm ; CE Guide v1.3 | 2026-08-01 |
 
-### Open-source hunt (delegated adversarial search)
+### Open-source hunt (the greenfield claim)
 
 | Claim (quoted) | Source file | Verdict | What is actually true | Source URL | Accessed |
 |---|---|---|---|---|---|
-| "No open-source Natural *interpreter* or *emulator* exists." | 05 sec. 3 | PENDING_INTERPRETER_VERDICT | PENDING_INTERPRETER_DETAIL | | 2026-08-01 |
-| "no Software AG Natural grammar exists in `antlr/grammars-v4`" | 05 sec. 3 | PENDING_ANTLR_VERDICT | PENDING_ANTLR_DETAIL | | 2026-08-01 |
+| "no Software AG Natural grammar exists in `antlr/grammars-v4`" | 05 sec. 3 | CONFIRMED | Enumerated all **316** top-level directories in the repository. There is no `natural`, no `adabas`, no `software-ag`, and no `sag` grammar. The only mainframe-adjacent entry is `cobol85`. The claim is exactly right. | https://api.github.com/repos/antlr/grammars-v4/contents/ | 2026-08-01 |
+| "No open-source Natural *interpreter* or *emulator* exists." | 05 sec. 3 | CONFIRMED | Independently re-searched via the GitHub search API across `adabas` (119 repos), `natural 4gl` (2), `natural adabas` (46), `softwareag natural` (7), plus targeted queries for transpiler, emulator, and compiler shapes. Every result falls into one of five buckets and none executes Natural: code samples, documentation, editor tooling, database/REST client libraries, or programs *written in* Natural. Nothing parses-and-runs Natural. The execution engine is genuinely greenfield. | https://api.github.com/search/repositories?q=natural+4gl | 2026-08-01 |
+| Implied: the spike's GitHub sweep found everything worth finding | 05 sec. 3 | INCOMPLETE | The claim survives, but the sweep missed several license-clean Natural artifacts worth knowing about. `andref/Unnatural-Sublime-Package` (MIT, 10 stars, 2018) is a second editor integration. `SergioGraciaCorreia/Natural-Mainframe-RPG` (MIT, pushed 2025-01-27) is a roguelike **written in** Natural and is a rare source of non-vendor, permissively licensed, non-trivial Natural source. `audacity363/realHTML4Natural` (GPL-3.0) is a web framework for Natural; GPL-3.0 makes it unusable for this project, which is worth recording so nobody reaches for it later. `foleymd/natural-work-samples` and `shivswami/natada` (Apache-2.0, "Natural Adabas Docker Env") round out the corpus. `nevioo1337/NaturalExplorer` is C# with **no license file**, so it is not reusable regardless of what it does. | https://api.github.com/search/repositories?q=softwareag+natural | 2026-08-01 |
 
-### Marketplace gap (delegated adversarial search)
+### Marketplace gap (the headline finding)
 
 | Claim (quoted) | Source file | Verdict | What is actually true | Source URL | Accessed |
 |---|---|---|---|---|---|
-| "No modern, interactive, beginner-friendly Natural course exists." / "Searches of Udemy, Pluralsight, Coursera, LinkedIn Learning, and edX returned no dedicated, current, interactive Natural course." | 04 exec summary and sec. 4 | PENDING_MARKET_VERDICT | PENDING_MARKET_DETAIL | | 2026-08-01 |
+The spike presents a five-row table in which every platform reads "None found". That table
+overstates what was actually established, because two of the five cannot be checked without
+defeating bot protection. Per-platform verdicts:
+
+| Platform (claim: "None found") | Source file | Verdict | What is actually true | Source URL | Accessed |
+|---|---|---|---|---|---|
+| Udemy: "No dedicated current Natural (Software AG) course found" | 04 sec. 4 | **UNVERIFIED** | Udemy's search is behind Cloudflare. `/courses/search/?q=adabas` returns HTTP 403 to both `curl` with a browser user-agent and to WebFetch, and `api-2.0/courses/?search=adabas` returns the "Just a moment..." interstitial. No result set was ever retrieved. The spike's "None found" for Udemy is an absence of evidence being reported as evidence of absence. It is probably true, but it is not verified, and Udemy is the single most likely platform to host a stray legacy-tech course. Check it manually in a real browser before the "uncontested" claim is used in any commercial positioning. | https://www.udemy.com/courses/search/?q=adabas+natural | 2026-08-01 |
+| Coursera: "None found" | 04 sec. 4 | CONFIRMED | Search for "adabas" returns only fuzzy, unrelated matches (Linux/Bash automation, Unix system programming, Excel analytics, SAS programming, blockchain). Nothing about Software AG Natural or ADABAS. | https://www.coursera.org/search?query=adabas | 2026-08-01 |
+| LinkedIn Learning: "None found" | 04 sec. 4 | CONFIRMED | Search for "adabas" reports 4,834 results but every visible title is unrelated soft-skills or general tech content matched by coincidental keyword overlap. The nearest hit, "Natural join", is the SQL operation, not Software AG Natural. | https://www.linkedin.com/learning/search?keywords=adabas | 2026-08-01 |
+| edX: "A topic landing page for 'Adabas' only, no actual course" | 04 sec. 4 | CONFIRMED | Verified above. Topic page renders 17 certificate programs and 48 courses, all generic database and data-engineering titles. | https://www.edx.org/learn/adabas | 2026-08-01 |
+| Pluralsight: "None found" | 04 sec. 4 | **UNVERIFIED (inconclusive)** | The search page renders its result set client-side and returned an empty results region to fetch, so neither presence nor absence was established. Consistent with "none", not proof of it. | https://www.pluralsight.com/search?q=adabas | 2026-08-01 |
+| "No modern, interactive, beginner-friendly Natural course exists" (the headline finding) | 04 exec summary | HOLDS, on the specific reading that matters | Nothing found anywhere in this pass is a browser-based, self-serve, interactive Natural course. The four official YouTube playlists (32 videos) are passive video. The vendor LMS course is a self-paced LMS module behind a free account, not an interactive coding environment. The third-party offerings are instructor-led corporate classroom training. The archived education package is a 2017-era tutorial set requiring a virtual machine that no longer downloads. The core product thesis stands. What does **not** stand is the absolute framing "the mainstream learning marketplaces have essentially nothing", since Udemy and Pluralsight were never actually inspected. | (composite) | 2026-08-01 |
 
 ---
 
@@ -139,6 +151,13 @@ It is a read-only reference for a paid course.
 textbook surfaced" and add a row for Michael Schluter, *Einfuhrung in die Programmierung mit
 Natural & Adabas*, Lehmanns Media, 2019, 352 pages, ISBN 978-3-86541-994-1.
 
+**Spike 04, section 4, mainstream marketplaces table.** Two of the five rows must change from
+"None found" to "Not verified; search blocked". Udemy returns HTTP 403 behind Cloudflare and
+Pluralsight renders results client-side, so neither was ever actually inspected. Reporting
+them as "None found" turns a failed check into a positive finding, and that specific table is
+what the spike calls "the clearest evidence of the gap". Coursera, LinkedIn Learning, and edX
+are genuinely confirmed empty. Someone should open Udemy in a real browser once and settle it.
+
 **Spike 04, whole document: the English-only search bias.** Both the missing textbook and a
 missing German training provider (SCN GmbH) were found by a single German-language search. The
 gap analysis was built entirely on English queries. Before the "no competition" claim is used
@@ -161,11 +180,13 @@ row and mark it dormant since 2023-01-23. Correct the `vscode-natural` Marketpla
 Change the Medium series access column from "Free to read" to "Medium member-only (paywalled)",
 add the 2022-10-28 date, and note it pins superseded CE versions.
 
-**Spike 04, section 4 and sources.** Note explicitly that `learn.softwareag.com` course pages
-return HTTP 200 but render nothing anonymously, so their content is unverified rather than
-merely "gated". Add the Tech Community "Training Essentials" post as the corroborating source
-that the self-paced Natural Programming Basic course is free and that completion awards the
-Credly "Software AG Certified Natural Associate" foundational badge.
+**Spike 04, section 4 and sources.** Stop citing `learn.softwareag.com` course-ID URLs as
+evidence. That host is a Docebo SPA that returns HTTP 200 for every path including nonsense
+ones, so the four cited IDs prove nothing. Replace them with the two artifacts that do carry
+evidentiary weight: the Tech Community "Training Essentials" post (establishes the self-paced
+Natural Programming Basic course is free, requires only a free learning account, and awards a
+Software AG Certified digital badge) and the Credly badge page (establishes the badge is live,
+foundational level, and earned by completing that course).
 
 **Spike 05, section 1.** This is the substantive rewrite. The paragraph beginning "License
 terms (the critical constraint)" must be replaced. It currently implies the CE is
@@ -357,13 +378,36 @@ Repositories and tooling:
 Courses, badges, community:
 - https://www.credly.com/org/software-ag/badge/software-ag-certified-natural-associate - live foundational learning badge; criteria are completion of the Natural Programming Basic course.
 - https://techcommunity.softwareag.com/t/introducing-free-training-essentials-for-adabas-natural/259320 - official post confirming the self-paced Digital Essentials trainings are free with a free learning account and award a Software AG Certified digital badge.
-- https://learn.softwareag.com/course/info.php?id=1467 - HTTP 200, renders an anonymous SPA shell only.
+- https://learn.softwareag.com/course/info.php?id=1467 - HTTP 200, renders an anonymous Docebo SPA shell only. Control test: `?id=999999`, `?id=12345678`, and `/this/path/does/not/exist/at/all` also return HTTP 200, so status codes from this host carry no information.
 - https://techcommunity.softwareag.com/categories.json - five top-level categories; no adabas-natural category.
 - https://techcommunity.softwareag.com/tag/adabas-natural - current live route for Adabas and Natural content.
 - https://techcommunity.softwareag.com/t/adabas-natural-tutorials/311404 - official tutorial index, 2025-06-01, four YouTube playlists totaling 32 videos.
 - https://www.edx.org/learn/adabas - topic landing page, no Adabas or Natural course.
 
+Open-source hunt:
+- https://api.github.com/repos/antlr/grammars-v4/contents/ - 316 directories enumerated; no natural, adabas, software-ag, or sag grammar; only cobol85 is mainframe-adjacent.
+- https://api.github.com/search/repositories?q=adabas - 119 repos; none execute Natural.
+- https://api.github.com/search/repositories?q=natural+4gl - 2 repos, both MarkusAmshove tooling.
+- https://api.github.com/search/repositories?q=softwareag+natural - 7 repos; editor tooling, a web framework, a game written in Natural.
+- https://api.github.com/repos/cryptool-org/wasm-webterm - Apache-2.0 (not MIT), 93 stars, pushed 2026-06-12.
+- https://api.github.com/repos/segeljakt/xterm-js-rs - MIT only (not dual), pushed 2023-01-07.
+- https://crates.io/api/v1/crates/xterm-js-rs - max version 0.1.2, published 2021-11-15, three versions total.
+- https://api.github.com/repos/tsl0922/ttyd - MIT, 12,128 stars, pushed 2026-06-30.
+
+Marketplaces:
+- https://www.coursera.org/search?query=adabas - fuzzy unrelated results only.
+- https://www.linkedin.com/learning/search?keywords=adabas - fuzzy unrelated results only.
+- https://www.udemy.com/courses/search/?q=adabas+natural - HTTP 403, Cloudflare interstitial, not inspectable.
+- https://www.pluralsight.com/search?q=adabas - client-rendered, empty result region returned.
+
+Dead hosts encountered (record so the next researcher does not chase them):
+- `knowledge.softwareag.com` - **NXDOMAIN**, confirmed against Google DNS 8.8.8.8. Search engines still index `knowledge.softwareag.com/course/index.php?categoryid=41` as "Learning Portal: Adabas & Natural" and an `E307A-75E` course page. Both are stale index entries for a decommissioned host. The live LMS is `learn.softwareag.com`.
+- `idestrainings.com` - NXDOMAIN. Surfaces in search as a Natural/Adabas training provider; the company's site no longer resolves.
+- `education.softwareag.com` - resolves but does not respond; connection times out.
+- `www.scngmbh.de/seminar/software-ag/*` - HTTP 404; site root returns 500.
+
 Books:
+- https://www.lehmanns.de/shop/mathematik-informatik/48218507-9783865419941-einfuehrung-in-die-programmierung-mit-natural-adabas - Michael Schluter, *Einfuhrung in die Programmierung mit Natural & Adabas*, 3rd edition, Lehmanns Media Berlin, 2019-06-17, 352 pages, ISBN 978-3-86541-994-1. E-book edition ISBN 978-3-96543-059-4. Predecessor volume ISBN 978-3-86541-526-4. Retailer page returns 403 to automated fetch; details corroborated across Lehmanns, Thalia, Amazon, and Google Books listings.
 - http://spsimpson.com/nat-u/NATURAL%20Essentials.pdf - Stephen Paul Simpson, version 2.10, 291 pages, PDF CreationDate 2000-04-13, copyright 1999-2000, personal non-profit use only, commercial and for-profit use expressly an infringement.
 - http://spsimpson.com/nat-u/main.htm - landing page, HTTP 200.
 

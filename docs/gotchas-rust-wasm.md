@@ -223,6 +223,21 @@ All versions below verified as of 2026-07-22 against the linked source.
 * **We do NOT need COOP or COEP**, because of the state-machine choice above.
   That is the whole point: every static host works with default configuration.
 
+## Crates that look right and are not
+
+* **Do NOT adopt `segeljakt/xterm-js-rs`** despite it looking like an exact match
+  for a Rust plus wasm plus xterm.js stack. Its last crate release is **0.1.2 from
+  November 2021**, so it binds **xterm.js 4.x** while this project targets
+  `@xterm/xterm` **6.0.0**. Two major versions of drift in the very API it wraps.
+  It is also MIT only, not the usual Rust dual license. Write the small amount of
+  `wasm-bindgen` glue by hand against the current xterm.js API instead.
+  (Added 2026-08-01; an earlier spike described this crate as "close to the exact
+  stack recommended here", which would have been a costly detour.)
+
+* `cryptool-org/wasm-webterm` is **Apache-2.0**, not MIT as previously recorded, and
+  it is an xterm.js v4-era addon. Useful as prior art for the pattern, not as a
+  dependency.
+
 ## Vite
 
 * **Add the wasm-pack `pkg` directory to `optimizeDeps.exclude`.** Vite

@@ -5,6 +5,27 @@
 
 Spike date: 2026-07-19
 
+> **Corrections applied 2026-08-01.** This spike was adversarially re-verified. See
+> `research/verification/` for the verdict tables. Known defects found in this file:
+> - Every Natural version number in the resource table is wrong, because the spike read a
+>   documentation portal frozen on 2021-10-15. Correct as of 2026-08-01: mainframe 9.2.4,
+>   Windows 9.3.3, Linux and UNIX 9.3.3.
+> - `techcommunity.softwareag.com/c/adabas-natural/` is a 404, not the canonical home.
+>   `education.softwareag.com` does not respond at all.
+> - The Udemy and Pluralsight rows report "none found" from checks that never succeeded
+>   (Udemy returns 403 behind Cloudflare; Pluralsight renders client-side). Treat both as
+>   UNKNOWN. Coursera, LinkedIn Learning, and edX are genuinely empty.
+> - "No independently authored ISBN-bearing textbook" is false. Michael Schlueter,
+>   "Einfuehrung in die Programmierung mit Natural & Adabas", Lehmanns Media 2019, ISBN
+>   978-3-86541-994-1. Missed because every search ran in English only.
+> - `adabas-natural-code-samples` is not "active" (last commit 2024-03-27) and has 51
+>   folders, not 60 or more. The Medium series is member-only, not free.
+> - The learn.softwareag.com course IDs prove nothing: it is a Docebo single-page app that
+>   returns HTTP 200 for every path, including nonsense ones.
+> Where this file and its verification file disagree, the verification file wins.
+
+
+
 ## Executive summary (the gap analysis)
 
 No modern, interactive, beginner-friendly Natural course exists. That is the
