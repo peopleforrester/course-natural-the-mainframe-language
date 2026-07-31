@@ -24,9 +24,21 @@ fn keywords_are_case_insensitive() {
 }
 
 #[test]
-fn write_with_no_operand_emits_a_blank_line() {
-    let lines = run_to_lines("WRITE 'a'\nWRITE\nWRITE 'b'\nEND").expect("program should run");
-    assert_eq!(lines, vec!["a", "", "b"]);
+fn write_with_no_operand_is_a_teaching_error() {
+    // An earlier build invented the behavior that a bare WRITE emits a blank line. The
+    // documentation does not support it: the WRITE syntax diagram requires at least one
+    // output element, and the documented way to emit a blank line is SKIP or WRITE with a
+    // slash. See research/07-output-formatting-semantics.md rows F6 and F7. Rather than
+    // teach an unverified behavior, the interpreter points at the documented idiom.
+    let err = run_to_lines("WRITE 'a'\nWRITE\nEND").expect_err("bare WRITE should be rejected");
+    assert!(
+        matches!(err, NaturalError::UnknownStatement { .. }),
+        "expected UnknownStatement, got {err:?}"
+    );
+    assert!(
+        err.to_string().contains("SKIP"),
+        "message should point at the documented idiom, got: {err}"
+    );
 }
 
 #[test]

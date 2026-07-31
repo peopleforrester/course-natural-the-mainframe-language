@@ -26,15 +26,28 @@ mass-market course. Facts from the spikes:
   in the low tens, contract-heavy, concentrated in state government and insurance,
   at scarcity rates of roughly $55 to $86/hour (spike 03). This is not COBOL-scale
   enrollment.
-- **There is a real skills-gap tailwind.** Retiring mainframe staff and unfilled
-  backfill roles are documented, and the vendor has committed support well beyond
-  2050 (spike 03). Demand is thin but durable, and the paying audience is
-  cross-training COBOL/mainframe developers and employers backfilling retirements.
-- **The competition gap is near-total.** No modern interactive beginner Natural
-  course exists on Udemy, Pluralsight, Coursera, LinkedIn Learning, or edX. The
-  field is vendor reference docs, login-gated vendor LMS courses, multi-day
-  instructor-led corporate training, and a 25-year-old free self-study PDF
-  (spike 04). We would be first.
+- **There is a documented skills gap, but state it carefully. Corrected
+  2026-08-01.** Verified and intact: Forrester/Compuware 2018 found 23 percent
+  mainframe staff loss with 63 percent of those positions unfilled, traced to the
+  primary release. **Withdrawn:** an earlier draft cited "Futurum 2024: 79 percent
+  struggling to backfill". That statistic was misquoted (the real figure is 79
+  percent of employers *focusing recruitment* on a group, which is demand, not
+  difficulty), and the report's own headline conclusion argues *against* the aging
+  workforce narrative. Do not build acute-retirement messaging on it.
+  The vendor's "2050 and beyond" support commitment is real but dates from 2016,
+  and the entity that made it no longer exists in that form after the January 2025
+  standalone split. Demand is thin but durable, and the paying audience is
+  cross-training COBOL/mainframe developers and employers backfilling attrition.
+- **The competition gap is about FORMAT, not absence. Corrected 2026-08-01.** An
+  earlier version of this spec claimed the gap was "near-total" and that "we would
+  be first". Verification refuted that. At least six live independent providers
+  sell Natural and Adabas training (MaxMunus, igmGuru, Koenig, Verhoef,
+  Vistasparks, Nisa), and Software AG's own Digital Essentials modules for
+  Natural, Adabas, and NaturalONE are **free** and carry a certified badge.
+  What remains true, and is the actual differentiator, is that every incumbent is
+  either instructor-led classroom training or slide-and-video self-study. **None
+  of them lets a learner write and run real Natural code in a browser.** The
+  course competes on format and quality, not on novelty.
 - **Correction to the founding premise.** The University of Texas is a major
   operational *user* of Natural/ADABAS (its degree-audit system has run on it since
   1985, and it is the most Natural-heavy organization Sumble tracks), but there is
@@ -49,11 +62,21 @@ portfolio and marketing piece regardless of direct course revenue.
 
 ## 3. What Natural is (grounding, verified)
 
-- A 4GL first released in **1979** by Software AG (Darmstadt, Germany; company
-  founded 1969), designed as the native programming language for the **ADABAS**
-  database (spike 01).
-- Runs on z/OS, z/VSE, BS2000, and on Linux/Unix/Windows and cloud. NaturalONE is
-  the Eclipse-based IDE (spike 01).
+- A 4GL from Software AG (Darmstadt, Germany), designed as the native programming
+  language for the **ADABAS** database. Development is documented as starting in
+  **1975** under Peter Pagé with Margit Neumann; the widely repeated "first
+  released 1979" date rests only on Wikipedia and no primary source, so the course
+  must hedge it rather than assert it (corrected 2026-08-01).
+- **Supported platforms, corrected 2026-08-01.** An earlier version of this spec
+  listed z/OS, z/VSE, BS2000, and Linux/Unix/Windows. Three of those are retired,
+  with published end-of-maintenance dates that have already passed: **z/VSE
+  (2023-06-30)**, **BS2000/OSD (2023-12-31)**, and **legacy Unix, meaning AIX,
+  Solaris, and HP-UX (2024-12-31, sustained support ended 2025-12-31)**. The
+  vendor states it will "focus on Linux and IBM z/OS as our strategic platforms".
+  Natural 9.3.3 for Linux and Cloud names only RHEL 8 and 9, SLES 15 SP3 or above,
+  and RHEL 8 on z/Linux; Windows remains a separately documented product.
+  **Course content must not teach the retired platforms as current.** NaturalONE
+  is the Eclipse-based IDE.
 - **Current ownership (verified live):** Adabas & Natural is a standalone business
   under **Software GmbH**, owned by Silver Lake, since January 7, 2025. IBM bought
   webMethods and StreamSets from the old Software AG but **not** Adabas & Natural

@@ -161,6 +161,78 @@ fn parse_numeric_length(rest: &str, spec: &str, line: usize) -> Result<(u32, u32
     }
 }
 
+/// The number of digit positions an integer format holds, per the Natural format table.
+fn integer_digits(bytes: u8) -> usize {
+    match bytes {
+        1 => 3,
+        2 => 5,
+        _ => 10,
+    }
+}
+
+/// The number of print positions a field occupies in WRITE and DISPLAY output.
+///
+/// Numeric width is integer digits, plus one for the decimal point when the field has
+/// decimals, plus the decimal digits, plus ONE MORE leading position reserved for the
+/// sign. That trailing `+ 1` is the sign position, reserved unconditionally under the
+/// default `SG=ON` even for positive values. Verified in
+/// `research/07-output-formatting-semantics.md`, table rows A11 through A24.
+pub fn print_width(format: &Format) -> usize {
+    match format {
+        Format::Alpha { length } => *length,
+        Format::Numeric {
+            int_digits,
+            decimals,
+        }
+        | Format::Packed {
+            int_digits,
+            decimals,
+        } => *int_digits as usize + usize::from(*decimals > 0) + *decimals as usize + 1,
+        Format::Integer { bytes } => integer_digits(*bytes) + 1,
+        Format::Logical => 1,
+    }
+}
+
+/// Renders a field's value into exactly [`print_width`] characters.
+///
+/// Nothing is trimmed. Alphanumeric values are left-justified and padded with real
+/// trailing blanks; numeric values are right-justified under the default `Z9` edit mask,
+/// which suppresses leading zeros but forces the units digit and every decimal position.
+pub fn render_field(value: &Value, format: &Format) -> String {
+    let width = print_width(format);
+    match (value, format) {
+        (Value::Alpha(text), Format::Alpha { length }) => {
+            let mut out: String = text.chars().take(*length).collect();
+            while out.chars().count() < *length {
+                out.push(' ');
+            }
+            out
+        }
+        (Value::Number(n), Format::Numeric { decimals, .. } | Format::Packed { decimals, .. }) => {
+            right_justify(&format!("{:.*}", *decimals as usize, n), width)
+        }
+        (Value::Number(n), Format::Integer { .. }) => {
+            right_justify(&format!("{}", n.trunc()), width)
+        }
+        // The default edit mask for a logical field is documented as "blank / X", so false
+        // prints as a blank and true as an X. Marked DERIVED in the formatting spike
+        // because no worked example exists, so lessons should use an explicit EM= instead.
+        (Value::Logical(b), Format::Logical) => if *b { "X" } else { " " }.to_string(),
+        // coerce keeps values and formats in step, so this arm is unreachable in practice.
+        _ => " ".repeat(width),
+    }
+}
+
+fn right_justify(text: &str, width: usize) -> String {
+    let len = text.chars().count();
+    if len >= width {
+        return text.to_string();
+    }
+    let mut out = " ".repeat(width - len);
+    out.push_str(text);
+    out
+}
+
 /// A value held by a field or produced by a literal.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Value {

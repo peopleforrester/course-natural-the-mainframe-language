@@ -12,6 +12,9 @@ ownership, and "current" claims are verified against live sources, not memory.
 | 04 | Existing courses and resources | Official docs, books, tutorials, competing courses, community |
 | 05 | Emulator and WASM feasibility | Can Natural run locally / in a CLI / in the browser (WASM) |
 | 06 | Rust and WASM toolchain | New-technology adoption spike: current toolchain, xterm.js, INPUT strategy, decimals |
+| 07 | Output formatting semantics | Exact WRITE and DISPLAY widths, spacing, and edit masks |
+| 08 | Mainframe emulators and 3270 | Hercules, turnkey distros, browser 3270, green-screen look, map model |
+| 09 | Curriculum validation | Our module order against seven real published Natural syllabi |
 
 Spike 06 also produced `docs/gotchas-rust-wasm.md`, which is required reading before
 writing any Rust or WASM code in this repo.
@@ -23,3 +26,14 @@ Unleash workshop.
 ## Synthesis
 
 After all five land, the synthesis and the resulting course spec go in `spec/`.
+
+
+## Verification pass (2026-08-01)
+
+Every spike above was adversarially re-verified against primary sources, with agents
+instructed to refute rather than confirm. Findings and required corrections are in
+`research/verification/`, and the corrections have been applied back to the spikes, the
+spec, the lesson outline, `CLAUDE.md`, and `docs/gotchas-rust-wasm.md`.
+
+The verification files are the audit trail. Where a spike and its verification file
+disagree, the verification file is newer and wins.

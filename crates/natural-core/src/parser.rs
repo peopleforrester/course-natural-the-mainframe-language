@@ -12,10 +12,20 @@ pub enum Operand {
     Variable { name: String, line: usize },
 }
 
+/// One element of a WRITE statement's output list.
+///
+/// A literal is emitted verbatim with no padding. A field is padded to its declared print
+/// width. WRITE separates consecutive elements with exactly one blank.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum WriteItem {
+    Literal(String),
+    Field { name: String, line: usize },
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Statement {
     Write {
-        operands: Vec<String>,
+        items: Vec<WriteItem>,
     },
     Move {
         source: Operand,
@@ -242,23 +252,35 @@ fn parse_declaration(
 }
 
 fn parse_write(tokens: &[Token], line: usize) -> Result<Statement, NaturalError> {
-    let mut operands = Vec::new();
+    let mut items = Vec::new();
     for token in &tokens[1..] {
         match token {
-            Token::Text { value, .. } => operands.push(value.clone()),
+            Token::Text { value, .. } => items.push(WriteItem::Literal(value.clone())),
+            Token::Word { text, line } if text.starts_with('#') => items.push(WriteItem::Field {
+                name: normalize(text),
+                line: *line,
+            }),
             Token::Word { text, line } => {
-                // Printing a field's value depends on the default output formatting rules,
-                // which are verified separately before this is enabled.
                 return Err(NaturalError::NotYetSupported {
-                    feature: format!("writing the value of '{text}'"),
+                    feature: format!("writing '{text}'"),
                     line: *line,
                 });
             }
             Token::Newline => {}
         }
     }
-    let _ = line;
-    Ok(Statement::Write { operands })
+    if items.is_empty() {
+        // The WRITE syntax diagram requires at least one output element, and the documented
+        // way to emit a blank line is SKIP or WRITE with a slash. See
+        // research/07-output-formatting-semantics.md rows F6 and F7.
+        return Err(NaturalError::UnknownStatement {
+            name: "WRITE with nothing to write. Give it something to output, or use SKIP to \
+                   leave a blank line"
+                .to_string(),
+            line,
+        });
+    }
+    Ok(Statement::Write { items })
 }
 
 fn parse_move(tokens: &[Token], line: usize) -> Result<Statement, NaturalError> {

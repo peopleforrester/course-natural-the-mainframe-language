@@ -31,12 +31,39 @@ On the specific University of Texas claim: the strong, verifiable fact is that U
 
 ### The broader academic reality
 
-The honest picture across academia is bleak for Natural specifically. Software AG's own skills blog states plainly that "most universities no longer offer related instruction, since no one would dream of using these technologies for greenfield development projects." The active academic mainframe pipelines that do exist are aimed at COBOL and IBM Z, not Natural:
+The honest picture across academia is bleak for Natural specifically. A vendor blog states
+that "most universities no longer offer mainframe instruction, since no one would dream of
+using these technologies for greenfield development projects."
+
+Correction applied 2026-08-01: an earlier version of this file attributed that quote to
+"Software AG's own skills blog" and rendered it as "related instruction". Both were wrong.
+The source is Modern Systems (now OneAdvanced), a vendor that sells migration OFF the
+platform and therefore has an interest in the claim, and the word inside the quotation
+marks is "mainframe", not "related". Treat it as an interested party's assertion rather
+than the platform owner conceding the point.
+
+The active academic mainframe pipelines that do exist are aimed at COBOL and IBM Z, not
+Natural:
 
 - The **IBM Z Academic Initiative** partners with 120-plus US schools to put enterprise-computing content into curricula, and **Master the Mainframe** reached 4,286 students across 600-plus schools. These are COBOL/z/OS programs, not Natural programs. (Source: IBM / Open Mainframe Project.)
 - The **Open Mainframe Project COBOL Programming Course** (with American River College and IBM) is free and well-supported. There is no equivalent community-scale Natural course. (Sources: Open Mainframe Project; IBM newsroom, 2020.)
 
-**Inference for the course thesis:** the absence of a Natural teaching pipeline is simultaneously the risk (small audience, no feeder of curious students) and the opportunity (almost no competing structured instruction outside Software AG's own paywalled/vendor materials). A well-made independent Natural course would have very little direct competition.
+**Inference for the course thesis, CORRECTED 2026-08-01.** The absence of an academic
+teaching pipeline is real and is a risk: there is no feeder of curious students. But the
+conclusion originally drawn here, that a new course "would have very little direct
+competition", is **false** and has been withdrawn.
+
+Verification found at least six live independent training providers selling Natural and
+Adabas instruction (MaxMunus, igmGuru, Koenig, Verhoef, Vistasparks, Nisa), and an
+aggregator listing dozens of Natural/Adabas courses. Separately, Software AG's own
+Digital Essentials modules for Natural, Adabas, and NaturalONE are **free** and carry a
+certified badge, which this file elsewhere wrongly described as priced high.
+
+The defensible differentiator is therefore **format and quality, not novelty**: an
+interactive browser interpreter where a learner writes and runs real code, against
+incumbents that are instructor-led classroom courses and a free vendor offering that is
+slide-and-video self-study. That is a narrower claim than "first mover", and the course
+positioning must rest on it.
 
 ---
 
