@@ -1,5 +1,14 @@
-// ABOUTME: Output formatting acceptance tests transcribed from the verified table in
-// ABOUTME: research/07-output-formatting-semantics.md. Row ids in comments are that table's.
+// ABOUTME: Output formatting acceptance tests transcribed from the verified tables in
+// ABOUTME: research/07-output-formatting-semantics.md and its verification pass.
+//
+// Row ids in comments refer to those tables. The governing width rule survived an
+// adversarial re-verification on 2026-08-01 that measured 14 formats across 11 programs
+// and then mechanically checked every DISPLAY underline row in 535 documentation pages
+// for a counterexample, finding none.
+//
+// One deliberate divergence: trailing blanks at end of line are trimmed. Padding BETWEEN
+// elements is documented and is asserted here; end-of-line trailing blanks could not be
+// established either way, so this interpreter trims them as a course convention.
 
 use natural_core::run_to_lines;
 
@@ -115,25 +124,30 @@ fn b1_a_literal_is_emitted_verbatim_with_no_padding() {
 #[test]
 fn b2_literal_blanks_are_kept_and_the_separator_is_added() {
     // The literal carries three trailing blanks; WRITE adds one more as the separator,
-    // giving four before MADRID. The A20 field then pads out to its full width.
+    // giving four before MADRID. The A20 field's own trailing blanks fall at end of line
+    // and are trimmed by this interpreter's convention (see the module note below).
     assert_eq!(
         line(
             "1 #CITY (A20)\n",
             "MOVE 'MADRID' TO #CITY\nWRITE 'CITY:   ' #CITY"
         ),
-        "CITY:    MADRID              "
+        "CITY:    MADRID"
     );
 }
 
 #[test]
-fn b3_two_alpha_fields_are_each_padded_and_separated_by_one_blank() {
-    // 20 + one separator + 20 = 41 characters.
+fn b3_an_alpha_field_pads_to_its_full_width_mid_line() {
+    // This is the verified case: a short value in an A20 field is followed by real blanks
+    // out to column 20, then the one blank separator, so the second field starts at
+    // column 22. Confirmed by measurement in the documentation (row 45 of the
+    // verification table), and it is what keeps columns aligned.
     let out = line(
         "1 #A (A20)\n1 #B (A20)\n",
         "MOVE 'JONES' TO #A\nMOVE 'VIRGINIA' TO #B\nWRITE #A #B",
     );
-    assert_eq!(out, "JONES                VIRGINIA            ");
-    assert_eq!(out.len(), 41);
+    assert_eq!(out, "JONES                VIRGINIA");
+    // JONES is 5 characters, so 15 pad blanks plus 1 separator puts VIRGINIA at index 21.
+    assert_eq!(out.find("VIRGINIA"), Some(21));
 }
 
 #[test]
@@ -148,8 +162,12 @@ fn b4_literal_then_packed_field() {
 }
 
 #[test]
-fn alpha_shorter_than_its_field_keeps_real_trailing_blanks() {
+fn trailing_blanks_at_end_of_line_are_trimmed() {
+    // Course convention, not a documented Natural rule. Verification could not establish
+    // whether Natural emits a field's trailing blanks at end of line, and most
+    // documentation examples show them absent. They are invisible in a terminal, so
+    // trimming them keeps fixtures robust without asserting an unverified behavior.
+    // Mid-line padding is verified and is exercised by b3 above.
     let out = line("1 #N (A20)\n", "MOVE 'Hello' TO #N\nWRITE #N");
-    assert_eq!(out, "Hello               ");
-    assert_eq!(out.len(), 20);
+    assert_eq!(out, "Hello");
 }

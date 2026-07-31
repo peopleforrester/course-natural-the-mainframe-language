@@ -170,3 +170,30 @@ INPUT. Recorded in CLAUDE.md beside the state-machine constraint.
 
 Contract terms are unchanged. What changed is the accuracy of the justifications behind
 them, and in every case the corrected facts still support the sealed decisions.
+
+## 2026-08-01T00:00:00Z · 2.3 · Output formatting second pass; core model survived
+
+The numeric width rule and the reserved leading sign position were re-verified
+adversarially and survived. They were confirmed verbatim in the statements reference and
+the session-parameter page, corroborated by 14 character-counted measurements across 11
+programs, and then stress-tested by mechanically extracting every DISPLAY underline row
+from 535 documentation pages looking for a narrower numeric column. None exists. The
+interpreter's formatting is therefore built on a rule that has been actively attacked and
+held.
+
+Three code changes came out of it:
+
+- Trailing blanks at end of line are now trimmed. Padding between elements is documented
+  and verified and is unchanged; end-of-line trailing blanks could not be established
+  either way and most examples show them absent. Since they are invisible in a terminal,
+  trimming avoids encoding an unverified behavior and keeps fixtures robust. Recorded as a
+  course convention rather than a claim about Natural.
+- Rejecting a bare WRITE is now confirmed correct: it is a syntax error, and the page the
+  first spike reported as a 404 is in fact live.
+- Logical output as blank or X moved from DERIVED to VERIFIED, stated verbatim in the
+  statements reference.
+
+One trap worth remembering: the default numeric mask must be encoded as a RULE, not as the
+literal mask string `Z9`. An explicit `EM=Z9` on an N7.2 field truncates it to two digits.
+This interpreter already encodes the rule, so no change was needed, but a future edit-mask
+implementation could easily get it wrong.
