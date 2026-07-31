@@ -76,3 +76,20 @@ file end to end, and the missing-END error path prints the teaching message with
 non-zero exit. `natural-core` compiles to wasm32-unknown-unknown, settling the gotchas
 doc's day-one wasm check for the core crate. The `rust_decimal` wasm question remains
 open until M-B introduces that dependency.
+
+## 2026-07-31T00:00:00Z · 3.2 · Hosted CI declined; local gate is the enforcement point
+
+Michael decided against GitHub Actions for this repo. The suite is fast, the repo is
+private, and paid runner minutes buy nothing that a local run does not already give.
+
+Lifecycle step 3.2 "Confirm CI" is therefore satisfied by `scripts/verify.sh` rather
+than a hosted pipeline. This is a CONDITIONAL skip recorded with its reason, not a
+silent bypass. The gate runs format, clippy under `-D warnings`, the test suite, the
+wasm32-unknown-unknown build, and an em-dash scan over tracked markdown. It is wired
+to a repo-local pre-push hook by `scripts/install-hooks.sh`, so nothing reaches the
+remote without passing, and `--no-verify` remains the deliberate override.
+
+The gate found real em-dashes in `reference/vtt-model/vtt-architecture.md` on its first
+run, which the earlier manual scan had missed because it only covered `research/`.
+Revisit this decision if the repo goes public or gains outside contributors, where
+hosted CI checks pull requests from people who have not installed the hook.

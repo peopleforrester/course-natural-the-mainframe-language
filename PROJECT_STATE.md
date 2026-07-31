@@ -1,6 +1,6 @@
 # Project State: course-natural-the-mainframe-language
 
-Phase: 2.3 Verify
+Phase: 3.3 Promote (M-A shipped)
 Approved: 2026-07-22T18:45:25Z by Michael (sha256:135613afc4c9)
 
 ## Lifecycle
@@ -10,9 +10,9 @@ Approved: 2026-07-22T18:45:25Z by Michael (sha256:135613afc4c9)
 - [x] 2.1 Test
 - [x] 2.2 Implement
 - [x] 2.3 Verify
-- [ ] 3.1 Stage  ← you are here
-- [ ] 3.2 Confirm CI
-- [ ] 3.3 Promote
+- [x] 3.1 Stage
+- [x] 3.2 Confirm CI (local gate; hosted CI intentionally not used)
+- [x] 3.3 Promote
 
 ## Contracts
 - 2026-07-22T18:45:25Z (sha256:135613afc4c9) `spec/course-spec.md` approved by
@@ -58,7 +58,9 @@ spec section 8 (v1 scope depth, confirm Rust, product intent, public-repo timing
 - Wasm: `cargo build -p natural-core --target wasm32-unknown-unknown` succeeds. The
   day-one wasm check from the gotchas doc is settled for the core crate. The
   `rust_decimal` wasm question stays open until M-B adds the dependency.
-- Last CI: no pipeline configured yet
+- Verification: `scripts/verify.sh` is the gate, enforced by a pre-push hook.
+  No hosted CI by decision. Install the hook on a fresh clone with
+  `scripts/install-hooks.sh`.
 
 ## Phase History
 - 2026-07-19 repo initialized, VTT model extracted, research spikes launched
