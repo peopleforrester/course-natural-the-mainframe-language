@@ -50,9 +50,31 @@ pub enum Statement {
         target: usize,
         line: usize,
     },
-    /// Unconditional jump, used to skip an ELSE branch.
+    /// Evaluate the condition and jump to `target` when it is TRUE.
+    IfTrueJump {
+        condition: Condition,
+        target: usize,
+        line: usize,
+    },
+    /// Unconditional jump, used to skip an ELSE branch or close a loop.
     Jump {
         target: usize,
+    },
+    /// Start a counted loop: set the control field to `from`, then jump to `exit` if the
+    /// range is already empty.
+    ForInit {
+        var: String,
+        from: Operand,
+        to: Operand,
+        exit: usize,
+        line: usize,
+    },
+    /// End a counted loop: step the control field, then jump to `top` if it still fits.
+    ForNext {
+        var: String,
+        to: Operand,
+        top: usize,
+        line: usize,
     },
 }
 
@@ -100,12 +122,58 @@ pub struct Condition {
     pub right: Operand,
 }
 
+/// Where an ESCAPE should land, resolved when its loop is closed.
+#[derive(Debug, Clone, Copy)]
+enum EscapeKind {
+    /// Leave the loop entirely.
+    Bottom,
+    /// Begin the next iteration.
+    Top,
+}
+
+/// An ESCAPE waiting for its enclosing loop's targets to become known.
+struct PendingEscape {
+    index: usize,
+    kind: EscapeKind,
+}
+
 /// A block whose jump target is not known until its closing keyword is reached.
 enum OpenBlock {
     /// An IF with no ELSE yet. Holds the index of its IfFalseJump.
     If { false_jump: usize, line: usize },
     /// An IF whose ELSE has been seen. Holds the index of the Jump that skips the ELSE.
     Else { end_jump: usize, line: usize },
+    For {
+        init: usize,
+        var: String,
+        to: Operand,
+        body_start: usize,
+        escapes: Vec<PendingEscape>,
+        line: usize,
+    },
+    Repeat {
+        top: usize,
+        /// A UNTIL or WHILE guard at the top of the loop, if present.
+        guard: Option<usize>,
+        escapes: Vec<PendingEscape>,
+        line: usize,
+    },
+}
+
+impl OpenBlock {
+    fn line(&self) -> usize {
+        match self {
+            OpenBlock::If { line, .. }
+            | OpenBlock::Else { line, .. }
+            | OpenBlock::For { line, .. }
+            | OpenBlock::Repeat { line, .. } => *line,
+        }
+    }
+
+    /// True for the loop kinds, which are the blocks an ESCAPE can target.
+    fn is_loop(&self) -> bool {
+        matches!(self, OpenBlock::For { .. } | OpenBlock::Repeat { .. })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -164,10 +232,20 @@ pub fn parse(source: &str) -> Result<Program, NaturalError> {
     // An unclosed block is reported before a missing END, because it is the more specific
     // and more useful diagnostic.
     if let Some(open) = blocks.first() {
-        let line = match open {
-            OpenBlock::If { line, .. } | OpenBlock::Else { line, .. } => *line,
-        };
-        return Err(NaturalError::MissingEndIf { line });
+        let line = open.line();
+        return Err(match open {
+            OpenBlock::If { .. } | OpenBlock::Else { .. } => NaturalError::MissingEndIf { line },
+            OpenBlock::For { .. } => NaturalError::MissingLoopEnd {
+                keyword: "FOR".to_string(),
+                closer: "END-FOR".to_string(),
+                line,
+            },
+            OpenBlock::Repeat { .. } => NaturalError::MissingLoopEnd {
+                keyword: "REPEAT".to_string(),
+                closer: "END-REPEAT".to_string(),
+                line,
+            },
+        });
     }
     if finished {
         return Ok(program);
@@ -267,7 +345,7 @@ fn parse_line(
             let Some(OpenBlock::If {
                 false_jump,
                 line: open_line,
-            }) = blocks.pop()
+            }) = pop_matching(blocks, |b| matches!(b, OpenBlock::If { .. }))
             else {
                 return Err(NaturalError::UnexpectedBlockKeyword {
                     keyword: "ELSE".to_string(),
@@ -289,18 +367,130 @@ fn parse_line(
             });
             Ok(false)
         }
+        "FOR" => {
+            let (var, from, to) = parse_for_header(&tokens[1..], line)?;
+            let init = program.statements.len();
+            program.statements.push(Statement::ForInit {
+                var: var.clone(),
+                from,
+                to: to.clone(),
+                exit: usize::MAX,
+                line,
+            });
+            blocks.push(OpenBlock::For {
+                init,
+                var,
+                to,
+                body_start: program.statements.len(),
+                escapes: Vec::new(),
+                line,
+            });
+            Ok(false)
+        }
+        "END-FOR" => {
+            let Some(OpenBlock::For {
+                init,
+                var,
+                to,
+                body_start,
+                escapes,
+                ..
+            }) = pop_matching(blocks, |b| matches!(b, OpenBlock::For { .. }))
+            else {
+                return Err(block_mismatch("END-FOR", "FOR", line));
+            };
+            // Stepping the control field and re-testing happens here, so ESCAPE TOP lands
+            // on this instruction rather than skipping the increment.
+            let next = program.statements.len();
+            program.statements.push(Statement::ForNext {
+                var,
+                to,
+                top: body_start,
+                line,
+            });
+            let after = program.statements.len();
+            patch_target(program, init, after);
+            patch_escapes(program, escapes, after, next);
+            Ok(false)
+        }
+        "REPEAT" => {
+            let top = program.statements.len();
+            let guard = parse_repeat_guard(&tokens[1..], line)?.map(|condition| {
+                let index = program.statements.len();
+                program.statements.push(condition_jump(condition, line));
+                index
+            });
+            blocks.push(OpenBlock::Repeat {
+                top,
+                guard,
+                escapes: Vec::new(),
+                line,
+            });
+            Ok(false)
+        }
+        "END-REPEAT" => {
+            let Some(OpenBlock::Repeat {
+                top,
+                guard,
+                escapes,
+                ..
+            }) = pop_matching(blocks, |b| matches!(b, OpenBlock::Repeat { .. }))
+            else {
+                return Err(block_mismatch("END-REPEAT", "REPEAT", line));
+            };
+            program.statements.push(Statement::Jump { target: top });
+            let after = program.statements.len();
+            if let Some(guard) = guard {
+                patch_target(program, guard, after);
+            }
+            patch_escapes(program, escapes, after, top);
+            Ok(false)
+        }
+        "ESCAPE" => {
+            let kind = match tokens.get(1) {
+                Some(Token::Word { text, .. }) if text.eq_ignore_ascii_case("BOTTOM") => {
+                    EscapeKind::Bottom
+                }
+                Some(Token::Word { text, .. }) if text.eq_ignore_ascii_case("TOP") => {
+                    EscapeKind::Top
+                }
+                _ => {
+                    return Err(NaturalError::UnknownStatement {
+                        name: "ESCAPE without a direction. Write ESCAPE BOTTOM to leave the \
+                               loop, or ESCAPE TOP to start the next pass"
+                            .to_string(),
+                        line,
+                    });
+                }
+            };
+            // An ESCAPE belongs to the nearest enclosing loop, not to an IF it happens to
+            // sit inside, so the search skips conditional blocks.
+            let Some(loop_block) = blocks.iter_mut().rev().find(|b| b.is_loop()) else {
+                return Err(NaturalError::EscapeOutsideLoop { line });
+            };
+            let index = program.statements.len();
+            match loop_block {
+                OpenBlock::For { escapes, .. } | OpenBlock::Repeat { escapes, .. } => {
+                    escapes.push(PendingEscape { index, kind });
+                }
+                _ => unreachable!("is_loop guarantees a loop block"),
+            }
+            program
+                .statements
+                .push(Statement::Jump { target: usize::MAX });
+            Ok(false)
+        }
         "END-IF" => {
-            let Some(open) = blocks.pop() else {
-                return Err(NaturalError::UnexpectedBlockKeyword {
-                    keyword: "END-IF".to_string(),
-                    hint: "An END-IF needs a matching IF above it.".to_string(),
-                    line,
-                });
+            let Some(open) = pop_matching(blocks, |b| {
+                matches!(b, OpenBlock::If { .. } | OpenBlock::Else { .. })
+            }) else {
+                return Err(block_mismatch("END-IF", "IF", line));
             };
             let here = program_len(program);
             match open {
                 OpenBlock::If { false_jump, .. } => patch_target(program, false_jump, here),
                 OpenBlock::Else { end_jump, .. } => patch_target(program, end_jump, here),
+                _ => unreachable!("pop_matching restricted the kinds"),
             }
             Ok(false)
         }
@@ -494,9 +684,130 @@ fn program_len(program: &Program) -> usize {
 /// Fills in a jump target that was left unresolved when the instruction was emitted.
 fn patch_target(program: &mut Program, index: usize, target: usize) {
     match &mut program.statements[index] {
-        Statement::IfFalseJump { target: t, .. } | Statement::Jump { target: t } => *t = target,
+        Statement::IfFalseJump { target: t, .. }
+        | Statement::IfTrueJump { target: t, .. }
+        | Statement::Jump { target: t }
+        | Statement::ForInit { exit: t, .. } => *t = target,
         _ => unreachable!("only jump instructions are ever patched"),
     }
+}
+
+/// Resolves every ESCAPE collected for one loop once its boundaries are known.
+fn patch_escapes(program: &mut Program, escapes: Vec<PendingEscape>, bottom: usize, top: usize) {
+    for escape in escapes {
+        let target = match escape.kind {
+            EscapeKind::Bottom => bottom,
+            EscapeKind::Top => top,
+        };
+        patch_target(program, escape.index, target);
+    }
+}
+
+/// Pops the innermost block when it is of the expected kind, leaving the stack untouched
+/// otherwise so the caller can report a mismatched closer.
+fn pop_matching(
+    blocks: &mut Vec<OpenBlock>,
+    matches_kind: impl Fn(&OpenBlock) -> bool,
+) -> Option<OpenBlock> {
+    if blocks.last().is_some_and(matches_kind) {
+        blocks.pop()
+    } else {
+        None
+    }
+}
+
+fn block_mismatch(keyword: &str, opener: &str, line: usize) -> NaturalError {
+    NaturalError::UnexpectedBlockKeyword {
+        keyword: keyword.to_string(),
+        hint: format!("It needs a matching {opener}, and inner blocks must be closed first."),
+        line,
+    }
+}
+
+/// Builds the top-of-loop guard for REPEAT UNTIL or REPEAT WHILE.
+///
+/// UNTIL leaves the loop when its condition becomes true; WHILE leaves when its condition
+/// becomes false. They are the same jump with opposite senses.
+fn condition_jump(guard: (Condition, bool), line: usize) -> Statement {
+    let (condition, exit_when_true) = guard;
+    if exit_when_true {
+        Statement::IfTrueJump {
+            condition,
+            target: usize::MAX,
+            line,
+        }
+    } else {
+        Statement::IfFalseJump {
+            condition,
+            target: usize::MAX,
+            line,
+        }
+    }
+}
+
+/// Parses the optional `UNTIL <condition>` or `WHILE <condition>` after REPEAT.
+#[allow(clippy::type_complexity)]
+fn parse_repeat_guard(
+    tokens: &[Token],
+    line: usize,
+) -> Result<Option<(Condition, bool)>, NaturalError> {
+    let Some(Token::Word { text, .. }) = tokens.first() else {
+        if tokens.is_empty() {
+            return Ok(None);
+        }
+        return Err(NaturalError::UnknownStatement {
+            name: "REPEAT takes nothing, or UNTIL or WHILE followed by a condition".to_string(),
+            line,
+        });
+    };
+
+    let exit_when_true = match text.to_ascii_uppercase().as_str() {
+        "UNTIL" => true,
+        "WHILE" => false,
+        _ => {
+            return Err(NaturalError::UnknownStatement {
+                name: "REPEAT takes nothing, or UNTIL or WHILE followed by a condition".to_string(),
+                line,
+            });
+        }
+    };
+    Ok(Some((parse_condition(&tokens[1..], line)?, exit_when_true)))
+}
+
+/// Parses `#VAR = <from> TO <to>`, also accepting `:=` and `FROM` for the first part.
+fn parse_for_header(
+    tokens: &[Token],
+    line: usize,
+) -> Result<(String, Operand, Operand), NaturalError> {
+    let malformed = || NaturalError::UnknownStatement {
+        name: "a FOR header. Write it as FOR #I = 1 TO 10".to_string(),
+        line,
+    };
+
+    if tokens.len() != 5 {
+        return Err(malformed());
+    }
+    let var = require_name(&tokens[0], line)?;
+
+    let Token::Word { text: assign, .. } = &tokens[1] else {
+        return Err(malformed());
+    };
+    if !matches!(assign.to_ascii_uppercase().as_str(), "=" | ":=" | "FROM") {
+        return Err(malformed());
+    }
+
+    let Token::Word { text: to_kw, .. } = &tokens[3] else {
+        return Err(malformed());
+    };
+    if !to_kw.eq_ignore_ascii_case("TO") {
+        return Err(malformed());
+    }
+
+    Ok((
+        var,
+        operand_from(&tokens[2], line)?,
+        operand_from(&tokens[4], line)?,
+    ))
 }
 
 /// Parses `<operand> <operator> <operand>` with an optional trailing THEN.

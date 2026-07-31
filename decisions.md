@@ -248,3 +248,25 @@ Comparison requires both operands to be the same kind. Silently coercing text an
 would let a learner write a comparison that quietly never matches, which is worse than an
 error. Alphanumeric comparison ignores trailing blanks, matching Natural's blank padding of
 the shorter operand.
+
+## 2026-08-01T00:00:00Z · 2.2 · Milestone M-C3: loops, ESCAPE, and the runaway cap
+
+Added FOR, REPEAT with optional UNTIL and WHILE guards, and ESCAPE BOTTOM and TOP.
+Twenty-three acceptance tests. Loops reuse the jump machinery built for IF, so no new
+execution model was needed, which is what the flat-instruction-list decision was for.
+
+ESCAPE resolves to the nearest enclosing LOOP, deliberately skipping any IF blocks it sits
+inside, and its jump target is patched when that loop closes. Pending escapes are collected
+on the block stack alongside the loop, so ESCAPE TOP lands on the FOR increment rather than
+skipping it, which would have produced an infinite loop from correct-looking source.
+
+The runaway-loop cap is implemented as a limit on total statements executed, not on
+iterations of any particular construct. That catches a runaway of any shape, including one
+assembled from jumps rather than from a REPEAT. The default is one million statements,
+which is several orders of magnitude above any Tier 1 lesson while still failing in well
+under a second in the browser. `with_step_limit` exists so tests stay fast and so a lesson
+that genuinely needs more can ask for it.
+
+The error message is the product requirement working as intended. It names the cause and
+gives the two documented fixes: add an ESCAPE BOTTOM, or give the REPEAT an UNTIL or WHILE
+condition that eventually becomes true. Verified end to end through the CLI.
