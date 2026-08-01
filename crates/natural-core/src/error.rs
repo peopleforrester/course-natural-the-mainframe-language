@@ -110,6 +110,25 @@ pub enum NaturalError {
     )]
     RunawayLoop { limit: usize },
 
+    #[error(
+        "Line {line}: there is no database file called '{name}' in this course. \
+         The sample data provides EMPLOYEES."
+    )]
+    UnknownDdm { name: String, line: usize },
+
+    #[error("Line {line}: '{name}' is not a field of the {ddm} file.")]
+    UnknownDdmField {
+        name: String,
+        ddm: String,
+        line: usize,
+    },
+
+    #[error(
+        "Line {line}: '{name}' is not a view. Declare it in DEFINE DATA with \
+         VIEW OF before reading it."
+    )]
+    UnknownView { name: String, line: usize },
+
     #[error("Line {line}: cannot divide by zero.")]
     DivisionByZero { line: usize },
 

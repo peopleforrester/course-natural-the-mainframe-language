@@ -352,3 +352,36 @@ lesson fixtures avoid depending on it.
 
 Tier 1 modules 1 through 7 are now fully executable. Verified with a quarterly sales
 report: a loop computing quantities and amounts, rendered as an aligned DISPLAY table.
+
+## 2026-08-01T00:00:00Z · 2.2 · Milestone M-D1: the sample database, VIEW OF, and READ
+
+Added the EMPLOYEES sample file, view declarations, and the READ loop. Eighteen tests, all
+green on the first run.
+
+The data is real fixture rows in `crates/natural-core/data/employees.csv`, embedded with
+`include_str!` rather than read at run time, because the browser build has no filesystem.
+Eight employees across four countries with the field shapes the documentation examples use,
+so lesson output looks like the documentation a learner will go on to read.
+
+Three design decisions worth recording:
+
+- **A view binds into the same field map every other statement already uses.** When a
+  cursor lands on a record, the record's values are copied into the interpreter's fields
+  under their DDM names. WRITE, DISPLAY, IF, and COMPUTE then work on database fields with
+  no special handling at all, which is also a fair model of what Natural does: the view is
+  a buffer.
+- **READ reuses the loop machinery built for FOR and REPEAT**, and reports itself as a loop
+  to ESCAPE. That is not just economy of implementation. It is exactly the point module 8
+  is required to open on: a database loop IS a loop, and the curriculum validation made
+  that framing a condition of teaching loops before database access.
+- **The database is rebuilt for every interpreter**, so per-lesson reset is structural
+  rather than something a lesson author has to remember. A test asserts two runs of the
+  same program produce identical output.
+
+Field references no longer require a `#` prefix, because DDM fields do not have one. Any
+word that is not a number or TRUE/FALSE is now a field reference, and an unknown name is
+reported at run time as an undeclared field, which is the diagnostic a learner needs
+regardless.
+
+Verified with a US payroll report: read by name, filter on country, display four columns,
+and accumulate a total.

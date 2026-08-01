@@ -89,6 +89,24 @@ pub enum Statement {
         top: usize,
         line: usize,
     },
+    /// Begin a database loop: resolve the record set, bind the first record, or jump to
+    /// `exit` when the set is empty.
+    ReadInit {
+        view: String,
+        by: Option<String>,
+        limit: Option<usize>,
+        /// Identifies this loop's cursor, so nested and repeated reads stay independent.
+        key: usize,
+        exit: usize,
+        line: usize,
+    },
+    /// Advance a database loop: bind the next record and jump to `top`, or fall through.
+    ReadNext {
+        view: String,
+        key: usize,
+        top: usize,
+        line: usize,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -194,6 +212,13 @@ enum OpenBlock {
         escapes: Vec<PendingEscape>,
         line: usize,
     },
+    Read {
+        init: usize,
+        view: String,
+        body_start: usize,
+        escapes: Vec<PendingEscape>,
+        line: usize,
+    },
     Decide {
         /// The operand every VALUE clause is compared against, or None for DECIDE FOR.
         subject: Option<Operand>,
@@ -216,13 +241,18 @@ impl OpenBlock {
             | OpenBlock::Else { line, .. }
             | OpenBlock::For { line, .. }
             | OpenBlock::Repeat { line, .. }
+            | OpenBlock::Read { line, .. }
             | OpenBlock::Decide { line, .. } => *line,
         }
     }
 
-    /// True for the loop kinds, which are the blocks an ESCAPE can target.
+    /// True for the loop kinds, which are the blocks an ESCAPE can target. A READ is a
+    /// loop in Natural exactly as FOR and REPEAT are, which is the point module 8 opens on.
     fn is_loop(&self) -> bool {
-        matches!(self, OpenBlock::For { .. } | OpenBlock::Repeat { .. })
+        matches!(
+            self,
+            OpenBlock::For { .. } | OpenBlock::Repeat { .. } | OpenBlock::Read { .. }
+        )
     }
 }
 
@@ -233,9 +263,20 @@ pub struct Declaration {
     pub line: usize,
 }
 
+/// A `VIEW OF` declaration: a named window onto some of a database file's fields.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ViewDeclaration {
+    pub name: String,
+    pub ddm: String,
+    /// The DDM field names the program made visible, in declaration order.
+    pub fields: Vec<(String, usize)>,
+    pub line: usize,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Program {
     pub declarations: Vec<Declaration>,
+    pub views: Vec<ViewDeclaration>,
     pub statements: Vec<Statement>,
 }
 
@@ -293,6 +334,11 @@ pub fn parse(source: &str) -> Result<Program, NaturalError> {
             OpenBlock::Repeat { .. } => NaturalError::MissingLoopEnd {
                 keyword: "REPEAT".to_string(),
                 closer: "END-REPEAT".to_string(),
+                line,
+            },
+            OpenBlock::Read { .. } => NaturalError::MissingLoopEnd {
+                keyword: "READ".to_string(),
+                closer: "END-READ".to_string(),
                 line,
             },
             OpenBlock::Decide { .. } => NaturalError::MissingLoopEnd {
@@ -490,6 +536,49 @@ fn parse_line(
             }
             Ok(false)
         }
+        "READ" => {
+            let (view, by, limit) = parse_read_header(&tokens[1..], line)?;
+            let init = program.statements.len();
+            program.statements.push(Statement::ReadInit {
+                view: view.clone(),
+                by,
+                limit,
+                key: init,
+                exit: usize::MAX,
+                line,
+            });
+            blocks.push(OpenBlock::Read {
+                init,
+                view,
+                body_start: program.statements.len(),
+                escapes: Vec::new(),
+                line,
+            });
+            Ok(false)
+        }
+        "END-READ" => {
+            let Some(OpenBlock::Read {
+                init,
+                view,
+                body_start,
+                escapes,
+                ..
+            }) = pop_matching(blocks, |b| matches!(b, OpenBlock::Read { .. }))
+            else {
+                return Err(block_mismatch("END-READ", "READ", line));
+            };
+            let next = program.statements.len();
+            program.statements.push(Statement::ReadNext {
+                view,
+                key: init,
+                top: body_start,
+                line,
+            });
+            let after = program.statements.len();
+            patch_target(program, init, after);
+            patch_escapes(program, escapes, after, next);
+            Ok(false)
+        }
         "FOR" => {
             let (var, from, to) = parse_for_header(&tokens[1..], line)?;
             let init = program.statements.len();
@@ -593,7 +682,9 @@ fn parse_line(
             };
             let index = program.statements.len();
             match loop_block {
-                OpenBlock::For { escapes, .. } | OpenBlock::Repeat { escapes, .. } => {
+                OpenBlock::For { escapes, .. }
+                | OpenBlock::Repeat { escapes, .. }
+                | OpenBlock::Read { escapes, .. } => {
                     escapes.push(PendingEscape { index, kind });
                 }
                 _ => unreachable!("is_loop guarantees a loop block"),
@@ -656,6 +747,33 @@ fn parse_declaration(
 ) -> Result<(), NaturalError> {
     let words: Vec<String> = tokens.iter().filter_map(word_text).collect();
 
+    // A view declaration reads: <level> <name> VIEW OF <ddm>
+    if words.len() >= 4 && words[2] == "VIEW" && words[3] == "OF" {
+        let Some(ddm) = words.get(4) else {
+            return Err(NaturalError::UnknownStatement {
+                name: "VIEW OF without a file name, as in VIEW OF EMPLOYEES".to_string(),
+                line,
+            });
+        };
+        program.views.push(ViewDeclaration {
+            name: normalize(&words[1]),
+            ddm: normalize(ddm),
+            fields: Vec::new(),
+            line,
+        });
+        return Ok(());
+    }
+
+    // A field inside the most recent view reads: <level> <ddm-field-name>
+    // Those fields take their format from the DDM, so they carry no format specification.
+    if words.len() == 2
+        && let Some(view) = program.views.last_mut()
+        && words[0] != "1"
+    {
+        view.fields.push((normalize(&words[1]), line));
+        return Ok(());
+    }
+
     // A declaration reads: <level> <name> ( <format> )
     let level_looks_numeric = words
         .first()
@@ -714,16 +832,10 @@ fn parse_write(tokens: &[Token], line: usize) -> Result<Statement, NaturalError>
     for token in &tokens[1..] {
         match token {
             Token::Text { value, .. } => items.push(WriteItem::Literal(value.clone())),
-            Token::Word { text, line } if text.starts_with('#') => items.push(WriteItem::Field {
+            Token::Word { text, line } => items.push(WriteItem::Field {
                 name: normalize(text),
                 line: *line,
             }),
-            Token::Word { text, line } => {
-                return Err(NaturalError::NotYetSupported {
-                    feature: format!("writing '{text}'"),
-                    line: *line,
-                });
-            }
             Token::Newline => {}
         }
     }
@@ -819,7 +931,8 @@ fn patch_target(program: &mut Program, index: usize, target: usize) {
         Statement::IfFalseJump { target: t, .. }
         | Statement::IfTrueJump { target: t, .. }
         | Statement::Jump { target: t }
-        | Statement::ForInit { exit: t, .. } => *t = target,
+        | Statement::ForInit { exit: t, .. }
+        | Statement::ReadInit { exit: t, .. } => *t = target,
         _ => unreachable!("only jump instructions are ever patched"),
     }
 }
@@ -904,6 +1017,44 @@ fn parse_repeat_guard(
         }
     };
     Ok(Some((parse_condition(&tokens[1..], line)?, exit_when_true)))
+}
+
+/// Parses `[(limit)] <view> [BY <descriptor>]`.
+#[allow(clippy::type_complexity)]
+fn parse_read_header(
+    tokens: &[Token],
+    line: usize,
+) -> Result<(String, Option<String>, Option<usize>), NaturalError> {
+    let malformed = || NaturalError::UnknownStatement {
+        name: "a READ. Write it as READ EMPLOYEES-VIEW BY NAME".to_string(),
+        line,
+    };
+    let words: Vec<String> = tokens.iter().filter_map(word_text).collect();
+    let mut at = 0;
+
+    // An optional record limit in parentheses, as in READ (3) EMPLOYEES-VIEW.
+    let mut limit = None;
+    if words.first().map(String::as_str) == Some("(") {
+        let count = words.get(1).ok_or_else(malformed)?;
+        limit = Some(count.parse::<usize>().map_err(|_| malformed())?);
+        if words.get(2).map(String::as_str) != Some(")") {
+            return Err(malformed());
+        }
+        at = 3;
+    }
+
+    let view = words.get(at).ok_or_else(malformed)?.clone();
+    at += 1;
+
+    // BY and IN LOGICAL SEQUENCE BY both introduce a descriptor; the teaching subset
+    // accepts the short form.
+    let by = match words.get(at).map(String::as_str) {
+        Some("BY") => Some(words.get(at + 1).ok_or_else(malformed)?.clone()),
+        None => None,
+        Some(_) => return Err(malformed()),
+    };
+
+    Ok((view, by, limit))
 }
 
 /// Parses `#VAR = <from> TO <to>`, also accepting `:=` and `FROM` for the first part.
@@ -1349,18 +1500,17 @@ fn operand_from(token: &Token, line: usize) -> Result<Operand, NaturalError> {
     match token {
         Token::Text { value, .. } => Ok(Operand::Literal(Value::Alpha(value.clone()))),
         Token::Word { text, line: l } => {
-            if text.starts_with('#') {
-                return Ok(Operand::Variable {
+            // A number or TRUE/FALSE is a literal. Anything else naming something is a
+            // field reference. Database fields come from a DDM and carry no `#`, so the
+            // prefix cannot be what distinguishes them; an unknown name is reported at run
+            // time as an undeclared field, which is the diagnostic a learner needs anyway.
+            Ok(match Value::from_token(text) {
+                Some(value) => Operand::Literal(value),
+                None => Operand::Variable {
                     name: normalize(text),
                     line: *l,
-                });
-            }
-            Value::from_token(text)
-                .map(Operand::Literal)
-                .ok_or_else(|| NaturalError::UnknownStatement {
-                    name: format!("'{text}' is not a value this course understands"),
-                    line: *l,
-                })
+                },
+            })
         }
         Token::Newline => Err(NaturalError::UnknownStatement {
             name: "a missing value".to_string(),
