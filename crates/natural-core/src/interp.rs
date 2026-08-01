@@ -1,6 +1,7 @@
 // ABOUTME: Executes a parsed program as a resumable state machine driven by an explicit
 // ABOUTME: program counter, never Rust recursion, so it can pause for INPUT and resume.
 
+use crate::data::Database;
 use crate::error::NaturalError;
 use crate::parser::{ArithOp, Condition, Expr, Operand, Program, Statement, WriteItem};
 use crate::value::{Format, Value, coerce, print_width, render_field};
@@ -72,8 +73,32 @@ pub struct Interpreter {
     pending_output: VecDeque<String>,
     /// DISPLAY generates its headers once per report, not once per row.
     header_emitted: bool,
+    /// The sample database, rebuilt per interpreter so every lesson run starts clean.
+    database: Database,
+    /// Which DDM fields each declared view exposes.
+    views: BTreeMap<String, ViewBinding>,
+    /// One cursor per READ loop, keyed by that loop's ReadInit index so nested and
+    /// repeated reads never share position.
+    cursors: BTreeMap<usize, ReadCursor>,
+    /// A view-binding problem found while constructing, surfaced on the first `step` so
+    /// that construction can stay infallible.
+    init_error: Option<NaturalError>,
     steps: usize,
     step_limit: usize,
+}
+
+/// A declared view resolved against the database.
+#[derive(Debug, Clone)]
+struct ViewBinding {
+    ddm: String,
+    fields: Vec<String>,
+}
+
+/// A READ loop's resolved record set and position within it.
+#[derive(Debug, Clone)]
+struct ReadCursor {
+    records: Vec<usize>,
+    next: usize,
 }
 
 impl Interpreter {
@@ -91,13 +116,64 @@ impl Interpreter {
         Self {
             program,
             fields,
+            database: Database::sample(),
+            views: BTreeMap::new(),
+            cursors: BTreeMap::new(),
             pc: 0,
             pending_input: None,
             pending_output: VecDeque::new(),
             header_emitted: false,
+            init_error: None,
             steps: 0,
             step_limit: DEFAULT_STEP_LIMIT,
         }
+        .bind_views()
+    }
+
+    /// Resolves every VIEW OF declaration against the database and seeds its fields.
+    ///
+    /// A view's fields take their format from the DDM rather than from the program, so this
+    /// is where a misspelled file or field is caught. The error is held until the first
+    /// `step` so that construction stays infallible for callers.
+    fn bind_views(mut self) -> Self {
+        let views = self.program.views.clone();
+        for view in views {
+            let Some(ddm) = self.database.ddm(&view.ddm) else {
+                self.init_error = Some(NaturalError::UnknownDdm {
+                    name: view.ddm.clone(),
+                    line: view.line,
+                });
+                return self;
+            };
+            let mut names = Vec::with_capacity(view.fields.len());
+            for (field_name, line) in &view.fields {
+                let Some(definition) = ddm.field(field_name) else {
+                    self.init_error = Some(NaturalError::UnknownDdmField {
+                        name: field_name.clone(),
+                        ddm: ddm.name.clone(),
+                        line: *line,
+                    });
+                    return self;
+                };
+                // The view buffer exists before any record is read, holding format defaults.
+                self.fields.insert(
+                    field_name.clone(),
+                    Field {
+                        value: definition.format.default_value(),
+                        format: definition.format.clone(),
+                    },
+                );
+                names.push(field_name.clone());
+            }
+            self.views.insert(
+                view.name.clone(),
+                ViewBinding {
+                    ddm: view.ddm.clone(),
+                    fields: names,
+                },
+            );
+        }
+        self
     }
 
     /// Overrides the runaway-loop cap. Lower it to keep tests fast; raise it only for a
@@ -122,6 +198,9 @@ impl Interpreter {
     /// again, because statement execution must never recurse on the Rust call stack. A
     /// recursive evaluator could not be paused, and INPUT requires pausing.
     pub fn step(&mut self) -> Result<Step, NaturalError> {
+        if let Some(error) = self.init_error.take() {
+            return Err(error);
+        }
         loop {
             // Lines already produced are handed over one at a time before anything else
             // happens, so a multi-line statement cannot interleave with a suspension.
@@ -291,6 +370,53 @@ impl Interpreter {
                     }
                 }
 
+                // A READ is a loop exactly as FOR and REPEAT are, and it uses the same jump
+                // machinery. The only addition is a cursor over the resolved record set.
+                Statement::ReadInit {
+                    view,
+                    by,
+                    limit,
+                    key,
+                    exit,
+                    line,
+                } => {
+                    let binding = self.view_binding(&view, line)?;
+                    let ddm_name = binding.ddm.clone();
+                    if let Some(descriptor) = &by {
+                        let ddm = self
+                            .database
+                            .ddm(&ddm_name)
+                            .expect("the binding resolved this DDM");
+                        if ddm.field(descriptor).is_none() {
+                            return Err(NaturalError::UnknownDdmField {
+                                name: descriptor.clone(),
+                                ddm: ddm_name,
+                                line,
+                            });
+                        }
+                    }
+                    let mut records = self.database.order(by.as_deref());
+                    if let Some(limit) = limit {
+                        records.truncate(limit);
+                    }
+                    let cursor = ReadCursor { records, next: 0 };
+                    self.cursors.insert(key, cursor);
+                    if !self.advance_cursor(key, &view, line)? {
+                        self.pc = exit;
+                    }
+                }
+
+                Statement::ReadNext {
+                    view,
+                    key,
+                    top,
+                    line,
+                } => {
+                    if self.advance_cursor(key, &view, line)? {
+                        self.pc = top;
+                    }
+                }
+
                 Statement::Input { prompt, targets } => {
                     // Fail fast on an undeclared field rather than suspending and only
                     // discovering the problem after the learner has typed something.
@@ -351,6 +477,45 @@ impl Interpreter {
             }
         };
         Ok(condition.op.holds(ordering))
+    }
+
+    fn view_binding(&self, name: &str, line: usize) -> Result<ViewBinding, NaturalError> {
+        self.views
+            .get(name)
+            .cloned()
+            .ok_or_else(|| NaturalError::UnknownView {
+                name: name.to_string(),
+                line,
+            })
+    }
+
+    /// Moves a READ cursor to its next record and copies that record into the view buffer.
+    ///
+    /// Copying into the same field map every other statement already uses is what lets
+    /// WRITE, DISPLAY, IF, and COMPUTE work on database fields with no special handling.
+    fn advance_cursor(
+        &mut self,
+        key: usize,
+        view: &str,
+        line: usize,
+    ) -> Result<bool, NaturalError> {
+        let binding = self.view_binding(view, line)?;
+        let Some(cursor) = self.cursors.get_mut(&key) else {
+            return Ok(false);
+        };
+        let Some(record) = cursor.records.get(cursor.next).copied() else {
+            return Ok(false);
+        };
+        cursor.next += 1;
+
+        for field_name in &binding.fields {
+            if let Some(value) = self.database.value(record, field_name)
+                && let Some(field) = self.fields.get_mut(field_name)
+            {
+                field.value = value;
+            }
+        }
+        Ok(true)
     }
 
     /// Builds the column layout for one DISPLAY statement.

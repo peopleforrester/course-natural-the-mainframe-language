@@ -1,12 +1,14 @@
 // ABOUTME: Public API of the Natural teaching interpreter core: parse a source program
 // ABOUTME: and drive it as a resumable state machine that yields terminal output.
 
+mod data;
 mod error;
 mod interp;
 mod lexer;
 mod parser;
 mod value;
 
+pub use data::{Database, Ddm, DdmField, Record};
 pub use error::NaturalError;
 pub use interp::{Field, InputRequest, Interpreter, Step};
 pub use parser::{Program, parse as parse_program};
