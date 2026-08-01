@@ -319,3 +319,36 @@ misparsed, and the diagnostic names the keyword the block actually expects.
 Verified with a grading program that chains both forms: a DECIDE FOR ladder assigns a
 letter grade from a score, then a DECIDE ON with a multi-value clause branches on that
 letter.
+
+## 2026-08-01T00:00:00Z · 2.2 · DISPLAY completes module 6 and Tier 1 modules 1 to 7
+
+Added the column-oriented report statement, twelve tests, built entirely from the rules
+measured in the output-formatting spike: column width is the greater of the field's print
+width and its header width, the header for a user-defined variable is its name including
+the leading hash, headers are centered over a wider field, a field narrower than its header
+sits at the left of the column, alphanumeric values are left-justified and numeric values
+right-justified inside the field, columns are underlined with hyphens that do not span the
+gaps, and exactly one blank line separates the underline from the data.
+
+Two implementation notes:
+
+- The interpreter gained a `pending_output` queue. One DISPLAY produces four lines on its
+  first execution, and `step` returns one line at a time, so the queue is drained before
+  any further statement runs. That also guarantees output produced before a suspension is
+  delivered before the suspension is reported.
+- Headers are emitted once per report rather than once per row, which is what makes a
+  DISPLAY inside a loop produce the expected shape. Natural fixes headers from the first
+  DISPLAY at compile time; this fixes them at the first DISPLAY executed, which is
+  equivalent for single-report programs and is recorded as such in the code.
+
+Three test expectations were wrong on first run and the implementation was right: I had
+written two headers as left-justified when the documented rule is centered, and dropped a
+column separator in the third. Fixing the tests rather than the code was the correct call
+because each expectation is traceable to a measured documentation example.
+
+Header centering when the padding is ODD remains unverified. Both measured examples are
+symmetric. The extra blank currently goes on the right, and that is marked in the code so
+lesson fixtures avoid depending on it.
+
+Tier 1 modules 1 through 7 are now fully executable. Verified with a quarterly sales
+report: a loop computing quantities and amounts, rendered as an aligned DISPLAY table.
