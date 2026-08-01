@@ -2,9 +2,9 @@
 // ABOUTME: program counter, never Rust recursion, so it can pause for INPUT and resume.
 
 use crate::error::NaturalError;
-use crate::parser::{Condition, Operand, Program, Statement, WriteItem};
+use crate::parser::{ArithOp, Condition, Expr, Operand, Program, Statement, WriteItem};
 use crate::value::{Format, Value, coerce, render_field};
-use rust_decimal::Decimal;
+use rust_decimal::{Decimal, RoundingStrategy};
 use std::collections::BTreeMap;
 use std::str::FromStr;
 
@@ -181,6 +181,19 @@ impl Interpreter {
                     self.assign(&target, coerced, line)?;
                 }
 
+                Statement::Compute {
+                    target,
+                    expr,
+                    rounded,
+                    line,
+                } => {
+                    let result = self.evaluate_expr(&expr, line)?;
+                    let format = self.format_of(&target, line)?;
+                    let scaled = apply_scale(result, &format, rounded);
+                    let coerced = coerce(Value::Number(scaled), &format, &target, line)?;
+                    self.assign(&target, coerced, line)?;
+                }
+
                 Statement::Reset { targets } => {
                     for (name, line) in targets {
                         let format = self.format_of(&name, line)?;
@@ -301,6 +314,41 @@ impl Interpreter {
         Ok(condition.op.holds(ordering))
     }
 
+    /// Evaluates an arithmetic expression.
+    ///
+    /// This recurses over the expression tree, which is allowed: the no-recursion rule
+    /// governs statement execution, and a suspension can never occur mid-expression.
+    fn evaluate_expr(&self, expr: &Expr, line: usize) -> Result<Decimal, NaturalError> {
+        match expr {
+            Expr::Value(operand) => match self.resolve(operand)? {
+                Value::Number(n) => Ok(n),
+                other => Err(NaturalError::NonNumericArithmetic {
+                    name: match operand {
+                        Operand::Variable { name, .. } => name.clone(),
+                        Operand::Literal(_) => "a literal".to_string(),
+                    },
+                    kind: other.describe_kind().to_string(),
+                    line,
+                }),
+            },
+            Expr::Binary { left, op, right } => {
+                let a = self.evaluate_expr(left, line)?;
+                let b = self.evaluate_expr(right, line)?;
+                match op {
+                    ArithOp::Add => Ok(a + b),
+                    ArithOp::Sub => Ok(a - b),
+                    ArithOp::Mul => Ok(a * b),
+                    ArithOp::Div => {
+                        if b.is_zero() {
+                            return Err(NaturalError::DivisionByZero { line });
+                        }
+                        Ok(a / b)
+                    }
+                }
+            }
+        }
+    }
+
     /// True while a FOR control field has not yet passed its upper bound.
     fn control_still_in_range(
         &self,
@@ -385,6 +433,25 @@ impl PendingInput {
             field: name.clone(),
         })
     }
+}
+
+/// Applies a target field's decimal scale to a computed result.
+///
+/// Truncation toward zero is the documented default; ROUNDED rounds away from zero when
+/// the first discarded digit is 5 or more. Verified in
+/// `research/07-output-formatting-semantics.md`, rows E1 through E4.
+fn apply_scale(value: Decimal, format: &Format, rounded: bool) -> Decimal {
+    let decimals = match format {
+        Format::Numeric { decimals, .. } | Format::Packed { decimals, .. } => *decimals,
+        Format::Integer { .. } => 0,
+        _ => return value,
+    };
+    let strategy = if rounded {
+        RoundingStrategy::MidpointAwayFromZero
+    } else {
+        RoundingStrategy::ToZero
+    };
+    value.round_dp_with_strategy(decimals, strategy)
 }
 
 /// Converts a line of learner input into a value of the target field's format.

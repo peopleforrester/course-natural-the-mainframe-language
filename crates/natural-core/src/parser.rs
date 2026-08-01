@@ -40,6 +40,14 @@ pub enum Statement {
         prompt: Option<String>,
         targets: Vec<(String, usize)>,
     },
+    /// Evaluate an expression and store it, truncating to the target's scale unless
+    /// `rounded` is set.
+    Compute {
+        target: String,
+        expr: Expr,
+        rounded: bool,
+        line: usize,
+    },
     /// Evaluate the condition and jump to `target` when it is FALSE.
     ///
     /// Blocks are compiled to a flat instruction list with jumps rather than a nested
@@ -120,6 +128,29 @@ pub struct Condition {
     pub left: Operand,
     pub op: CompareOp,
     pub right: Operand,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ArithOp {
+    Add,
+    Sub,
+    Mul,
+    Div,
+}
+
+/// An arithmetic expression tree.
+///
+/// Expressions may be evaluated recursively, unlike statements. The constraint that
+/// forbids Rust recursion applies to statement execution only, because a suspension can
+/// occur between statements but never in the middle of evaluating an expression.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Expr {
+    Value(Operand),
+    Binary {
+        left: Box<Expr>,
+        op: ArithOp,
+        right: Box<Expr>,
+    },
 }
 
 /// Where an ESCAPE should land, resolved when its loop is closed.
@@ -325,6 +356,16 @@ fn parse_line(
         }
         "INPUT" => {
             program.statements.push(parse_input(tokens, line)?);
+            Ok(false)
+        }
+        "COMPUTE" | "ASSIGN" => {
+            program.statements.push(parse_compute(&tokens[1..], line)?);
+            Ok(false)
+        }
+        "ADD" | "SUBTRACT" | "MULTIPLY" | "DIVIDE" => {
+            program
+                .statements
+                .push(parse_arithmetic_verb(&head, &tokens[1..], line)?);
             Ok(false)
         }
         "IF" => {
@@ -647,18 +688,27 @@ fn parse_move(tokens: &[Token], line: usize) -> Result<Statement, NaturalError> 
 }
 
 fn parse_assignment(tokens: &[Token], line: usize) -> Result<Statement, NaturalError> {
-    // <target> := <source>
-    if tokens.len() != 3 {
+    if tokens.len() < 3 {
         return Err(NaturalError::UnknownStatement {
-            name: "an assignment takes one value, as in #FIELD := 3".to_string(),
+            name: "an assignment needs a value, as in #FIELD := 3".to_string(),
             line,
         });
     }
     let target = require_name(&tokens[0], line)?;
-    let source = operand_from(&tokens[2], line)?;
-    Ok(Statement::Move {
-        source,
+
+    // A single-token right-hand side is a plain move, which is what keeps text and logical
+    // assignment working. Anything longer is an arithmetic expression.
+    if tokens.len() == 3 {
+        return Ok(Statement::Move {
+            source: operand_from(&tokens[2], line)?,
+            target,
+            line,
+        });
+    }
+    Ok(Statement::Compute {
         target,
+        expr: parse_expr(&tokens[2..], line)?,
+        rounded: false,
         line,
     })
 }
@@ -838,6 +888,172 @@ fn parse_condition(tokens: &[Token], line: usize) -> Result<Condition, NaturalEr
         op,
         right: operand_from(&tokens[2], line)?,
     })
+}
+
+/// Parses `[ROUNDED] #TARGET = <expression>`.
+fn parse_compute(tokens: &[Token], line: usize) -> Result<Statement, NaturalError> {
+    let malformed = || NaturalError::UnknownStatement {
+        name: "a calculation. Write it as COMPUTE #TOTAL = #PRICE * #QTY".to_string(),
+        line,
+    };
+
+    let mut tokens = tokens;
+    let mut rounded = false;
+    if let Some(Token::Word { text, .. }) = tokens.first()
+        && text.eq_ignore_ascii_case("ROUNDED")
+    {
+        rounded = true;
+        tokens = &tokens[1..];
+    }
+
+    if tokens.len() < 3 {
+        return Err(malformed());
+    }
+    let target = require_name(&tokens[0], line)?;
+    let Token::Word { text: eq, .. } = &tokens[1] else {
+        return Err(malformed());
+    };
+    if !matches!(eq.as_str(), "=" | ":=") {
+        return Err(malformed());
+    }
+
+    Ok(Statement::Compute {
+        target,
+        expr: parse_expr(&tokens[2..], line)?,
+        rounded,
+        line,
+    })
+}
+
+/// Desugars ADD, SUBTRACT, MULTIPLY, and DIVIDE into a COMPUTE over the same target.
+///
+/// Each verb reads and writes one field, so `ADD 5 TO #N` is exactly `#N = #N + 5`. Note
+/// the direction of DIVIDE: `DIVIDE 4 INTO #N` divides the TARGET by 4, not the other way.
+fn parse_arithmetic_verb(
+    verb: &str,
+    tokens: &[Token],
+    line: usize,
+) -> Result<Statement, NaturalError> {
+    let (keyword, op) = match verb {
+        "ADD" => ("TO", ArithOp::Add),
+        "SUBTRACT" => ("FROM", ArithOp::Sub),
+        "MULTIPLY" => ("BY", ArithOp::Mul),
+        _ => ("INTO", ArithOp::Div),
+    };
+    let shape = || NaturalError::UnknownStatement {
+        name: match verb {
+            "ADD" => "ADD. Write it as ADD 5 TO #TOTAL".to_string(),
+            "SUBTRACT" => "SUBTRACT. Write it as SUBTRACT 5 FROM #TOTAL".to_string(),
+            "MULTIPLY" => "MULTIPLY. Write it as MULTIPLY #TOTAL BY 2".to_string(),
+            _ => "DIVIDE. Write it as DIVIDE 2 INTO #TOTAL".to_string(),
+        },
+        line,
+    };
+
+    let at = tokens
+        .iter()
+        .position(|t| matches!(t, Token::Word { text, .. } if text.eq_ignore_ascii_case(keyword)))
+        .ok_or_else(shape)?;
+    if at == 0 || at + 1 >= tokens.len() {
+        return Err(shape());
+    }
+
+    // MULTIPLY and DIVIDE name the target on the side that is not the keyword's operand.
+    let (target_token, amount) = match verb {
+        "MULTIPLY" => (&tokens[0], &tokens[at + 1..]),
+        _ if verb == "ADD" || verb == "SUBTRACT" || verb == "DIVIDE" => {
+            (&tokens[at + 1], &tokens[..at])
+        }
+        _ => unreachable!("the verb set is closed"),
+    };
+    let target = require_name(target_token, line)?;
+
+    Ok(Statement::Compute {
+        target: target.clone(),
+        expr: Expr::Binary {
+            left: Box::new(Expr::Value(Operand::Variable { name: target, line })),
+            op,
+            right: Box::new(parse_expr(amount, line)?),
+        },
+        rounded: false,
+        line,
+    })
+}
+
+/// Recursive-descent expression parser: sums of products, with parentheses.
+fn parse_expr(tokens: &[Token], line: usize) -> Result<Expr, NaturalError> {
+    let (expr, rest) = parse_sum(tokens, line)?;
+    if !rest.is_empty() {
+        return Err(NaturalError::UnknownStatement {
+            name: "an expression with something left over. Put spaces around each operator"
+                .to_string(),
+            line,
+        });
+    }
+    Ok(expr)
+}
+
+fn parse_sum(tokens: &[Token], line: usize) -> Result<(Expr, &[Token]), NaturalError> {
+    let (mut left, mut rest) = parse_product(tokens, line)?;
+    while let Some(Token::Word { text, .. }) = rest.first() {
+        let op = match text.as_str() {
+            "+" => ArithOp::Add,
+            "-" => ArithOp::Sub,
+            _ => break,
+        };
+        let (right, remainder) = parse_product(&rest[1..], line)?;
+        left = Expr::Binary {
+            left: Box::new(left),
+            op,
+            right: Box::new(right),
+        };
+        rest = remainder;
+    }
+    Ok((left, rest))
+}
+
+fn parse_product(tokens: &[Token], line: usize) -> Result<(Expr, &[Token]), NaturalError> {
+    let (mut left, mut rest) = parse_factor(tokens, line)?;
+    while let Some(Token::Word { text, .. }) = rest.first() {
+        let op = match text.as_str() {
+            "*" => ArithOp::Mul,
+            "/" => ArithOp::Div,
+            _ => break,
+        };
+        let (right, remainder) = parse_factor(&rest[1..], line)?;
+        left = Expr::Binary {
+            left: Box::new(left),
+            op,
+            right: Box::new(right),
+        };
+        rest = remainder;
+    }
+    Ok((left, rest))
+}
+
+fn parse_factor(tokens: &[Token], line: usize) -> Result<(Expr, &[Token]), NaturalError> {
+    let incomplete = || NaturalError::UnknownStatement {
+        name: "an incomplete expression".to_string(),
+        line,
+    };
+    let Some(first) = tokens.first() else {
+        return Err(incomplete());
+    };
+
+    if let Token::Word { text, .. } = first
+        && text == "("
+    {
+        let (inner, rest) = parse_sum(&tokens[1..], line)?;
+        match rest.first() {
+            Some(Token::Word { text, .. }) if text == ")" => Ok((inner, &rest[1..])),
+            _ => Err(NaturalError::UnknownStatement {
+                name: "an expression with an unclosed parenthesis".to_string(),
+                line,
+            }),
+        }
+    } else {
+        Ok((Expr::Value(operand_from(first, line)?), &tokens[1..]))
+    }
 }
 
 fn parse_input(tokens: &[Token], line: usize) -> Result<Statement, NaturalError> {
