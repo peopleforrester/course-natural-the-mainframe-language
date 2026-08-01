@@ -270,3 +270,32 @@ that genuinely needs more can ask for it.
 The error message is the product requirement working as intended. It names the cause and
 gives the two documented fixes: add an ESCAPE BOTTOM, or give the REPEAT an UNTIL or WHILE
 condition that eventually becomes true. Verified end to end through the CLI.
+
+## 2026-08-01T00:00:00Z · 2.2 · COMPUTE, the arithmetic verbs, and exact decimal math
+
+Closed a real gap: milestone M-B claimed module 4 but had only implemented MOVE, the
+assignment operator, and RESET. COMPUTE and the arithmetic verbs were missing. Twenty-one
+acceptance tests added.
+
+The expression evaluator recurses over an expression tree, and that is deliberate and
+allowed. The no-Rust-recursion constraint governs STATEMENT execution, because a suspension
+can occur between statements. It can never occur in the middle of evaluating an expression,
+so recursive descent for parsing and recursive evaluation for arithmetic are both fine. The
+constraint is now stated that precisely in the code, so a future reader does not
+over-apply it.
+
+Rounding follows the verified rows from the output-formatting spike. Truncation toward zero
+is the default (row E1), ROUNDED rounds away from zero when the first discarded digit is
+five or more (rows E2 and E4). A test pins each.
+
+One test earns its place beyond coverage: `arithmetic_is_exact_base_ten_not_floating_point`
+asserts that 0.1 + 0.2 stores exactly 0.30. In binary floating point that is
+0.30000000000000004. This is the property that makes the language usable for money, and it
+is the reason `rust_decimal` was chosen over an f64 shortcut.
+
+ADD, SUBTRACT, MULTIPLY, and DIVIDE desugar to COMPUTE over the same target. Worth noting
+the direction trap: `DIVIDE 4 INTO #N` divides the TARGET by 4, and `MULTIPLY #N BY 3`
+names its target first while the others name it last.
+
+Verified end to end with an invoice program: three line items, a running total, an
+8.25 percent tax computed with ROUNDED, and a final sum. Every figure is exact.

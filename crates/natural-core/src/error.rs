@@ -109,4 +109,17 @@ pub enum NaturalError {
          an UNTIL or WHILE condition that eventually becomes true."
     )]
     RunawayLoop { limit: usize },
+
+    #[error("Line {line}: cannot divide by zero.")]
+    DivisionByZero { line: usize },
+
+    #[error(
+        "Line {line}: '{name}' holds {kind}, so it cannot be used in a calculation. \
+         Arithmetic needs numeric fields."
+    )]
+    NonNumericArithmetic {
+        name: String,
+        kind: String,
+        line: usize,
+    },
 }
