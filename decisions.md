@@ -299,3 +299,23 @@ names its target first while the others name it last.
 
 Verified end to end with an invoice program: three line items, a running total, an
 8.25 percent tax computed with ROUNDED, and a final sum. Every figure is exact.
+
+## 2026-08-01T00:00:00Z · 2.2 · DECIDE ON and DECIDE FOR complete module 5
+
+Added both multi-way branches with their FIRST and EVERY variants, seventeen tests.
+
+Each clause compiles to a run of IfTrueJump tests that land on the clause body, followed by
+a Jump to the next clause. The body start is known before the tests are emitted, because
+the number of tests equals the number of values in the clause, which is what lets the whole
+construct compile in a single forward pass with no backpatching of body positions.
+
+The FIRST and EVERY difference falls out of one line: under FIRST a matched branch emits a
+jump to END-DECIDE when the next clause opens, and under EVERY it does not, so control
+falls through into the next clause's tests. No second code path.
+
+Mixing VALUE and WHEN is a frequent beginner slip, so it is detected rather than silently
+misparsed, and the diagnostic names the keyword the block actually expects.
+
+Verified with a grading program that chains both forms: a DECIDE FOR ladder assigns a
+letter grade from a score, then a DECIDE ON with a multi-value clause branches on that
+letter.
