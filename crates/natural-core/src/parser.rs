@@ -189,6 +189,19 @@ enum OpenBlock {
         escapes: Vec<PendingEscape>,
         line: usize,
     },
+    Decide {
+        /// The operand every VALUE clause is compared against, or None for DECIDE FOR.
+        subject: Option<Operand>,
+        /// FIRST stops after one match; EVERY lets execution fall through to later tests.
+        first: bool,
+        /// Jumps out of a matched branch, patched to the END-DECIDE position.
+        end_jumps: Vec<usize>,
+        /// The current clause's "did not match" jump, patched when the next clause opens.
+        pending_next: Option<usize>,
+        /// True once a clause body has been emitted, so the next clause knows to close it.
+        in_clause: bool,
+        line: usize,
+    },
 }
 
 impl OpenBlock {
@@ -197,7 +210,8 @@ impl OpenBlock {
             OpenBlock::If { line, .. }
             | OpenBlock::Else { line, .. }
             | OpenBlock::For { line, .. }
-            | OpenBlock::Repeat { line, .. } => *line,
+            | OpenBlock::Repeat { line, .. }
+            | OpenBlock::Decide { line, .. } => *line,
         }
     }
 
@@ -274,6 +288,11 @@ pub fn parse(source: &str) -> Result<Program, NaturalError> {
             OpenBlock::Repeat { .. } => NaturalError::MissingLoopEnd {
                 keyword: "REPEAT".to_string(),
                 closer: "END-REPEAT".to_string(),
+                line,
+            },
+            OpenBlock::Decide { .. } => NaturalError::MissingLoopEnd {
+                keyword: "DECIDE".to_string(),
+                closer: "END-DECIDE".to_string(),
                 line,
             },
         });
@@ -406,6 +425,41 @@ fn parse_line(
                 end_jump,
                 line: open_line,
             });
+            Ok(false)
+        }
+        "DECIDE" => {
+            let (subject, first) = parse_decide_header(&tokens[1..], line)?;
+            blocks.push(OpenBlock::Decide {
+                subject,
+                first,
+                end_jumps: Vec::new(),
+                pending_next: None,
+                in_clause: false,
+                line,
+            });
+            Ok(false)
+        }
+        "VALUE" | "WHEN" | "NONE" => {
+            open_decide_clause(&head, tokens, line, program, blocks)?;
+            Ok(false)
+        }
+        "END-DECIDE" => {
+            let Some(OpenBlock::Decide {
+                end_jumps,
+                pending_next,
+                ..
+            }) = pop_matching(blocks, |b| matches!(b, OpenBlock::Decide { .. }))
+            else {
+                return Err(block_mismatch("END-DECIDE", "DECIDE", line));
+            };
+            let here = program_len(program);
+            // The last clause's body falls through to here, so it needs no closing jump.
+            if let Some(pending) = pending_next {
+                patch_target(program, pending, here);
+            }
+            for jump in end_jumps {
+                patch_target(program, jump, here);
+            }
             Ok(false)
         }
         "FOR" => {
@@ -888,6 +942,183 @@ fn parse_condition(tokens: &[Token], line: usize) -> Result<Condition, NaturalEr
         op,
         right: operand_from(&tokens[2], line)?,
     })
+}
+
+/// Parses the DECIDE header, returning the compared operand (for ON) and whether only the
+/// first matching clause runs.
+fn parse_decide_header(
+    tokens: &[Token],
+    line: usize,
+) -> Result<(Option<Operand>, bool), NaturalError> {
+    let malformed = || NaturalError::UnknownStatement {
+        name: "a DECIDE header. Write DECIDE ON FIRST VALUE OF #FIELD, or \
+               DECIDE FOR FIRST CONDITION"
+            .to_string(),
+        line,
+    };
+    let words: Vec<String> = tokens.iter().filter_map(word_text).collect();
+
+    let first = match words.get(1).map(String::as_str) {
+        Some("FIRST") => true,
+        Some("EVERY") => false,
+        _ => return Err(malformed()),
+    };
+
+    match words.first().map(String::as_str) {
+        // DECIDE ON <FIRST|EVERY> VALUE [OF] <operand>
+        Some("ON") => {
+            if words.get(2).map(String::as_str) != Some("VALUE") {
+                return Err(malformed());
+            }
+            let subject_at = if words.get(3).map(String::as_str) == Some("OF") {
+                4
+            } else {
+                3
+            };
+            let token = tokens.get(subject_at).ok_or_else(malformed)?;
+            Ok((Some(operand_from(token, line)?), first))
+        }
+        // DECIDE FOR <FIRST|EVERY> CONDITION
+        Some("FOR") => {
+            if words.get(2).map(String::as_str) != Some("CONDITION") {
+                return Err(malformed());
+            }
+            Ok((None, first))
+        }
+        _ => Err(malformed()),
+    }
+}
+
+/// Emits the tests for one VALUE, WHEN, or NONE clause and closes the previous clause.
+///
+/// Each clause compiles to a run of IfTrueJump tests that land on the clause body, followed
+/// by a Jump to the next clause. The body start is known in advance because the number of
+/// tests is known, which is what lets this stay a single forward pass.
+fn open_decide_clause(
+    head: &str,
+    tokens: &[Token],
+    line: usize,
+    program: &mut Program,
+    blocks: &mut [OpenBlock],
+) -> Result<(), NaturalError> {
+    let Some(OpenBlock::Decide {
+        subject,
+        first,
+        end_jumps,
+        pending_next,
+        in_clause,
+        ..
+    }) = blocks.last_mut()
+    else {
+        return Err(NaturalError::UnexpectedBlockKeyword {
+            keyword: head.to_string(),
+            hint: "It belongs inside a DECIDE block.".to_string(),
+            line,
+        });
+    };
+
+    let is_value = head == "VALUE";
+    let is_none = head == "NONE" || (head == "WHEN" && clause_is_none(tokens));
+    if !is_none {
+        // VALUE belongs to DECIDE ON and WHEN belongs to DECIDE FOR. Mixing them is a
+        // frequent slip, so the diagnostic names the keyword that was expected.
+        let expected_value = subject.is_some();
+        if is_value != expected_value {
+            return Err(NaturalError::UnexpectedBlockKeyword {
+                keyword: head.to_string(),
+                hint: if expected_value {
+                    "A DECIDE ON block uses VALUE clauses.".to_string()
+                } else {
+                    "A DECIDE FOR block uses WHEN clauses.".to_string()
+                },
+                line,
+            });
+        }
+    }
+
+    // Close the previous clause. Under FIRST, a matched branch skips the rest.
+    if *in_clause && *first {
+        end_jumps.push(program.statements.len());
+        program
+            .statements
+            .push(Statement::Jump { target: usize::MAX });
+    }
+    if let Some(previous) = pending_next.take() {
+        patch_target(program, previous, program.statements.len());
+    }
+    *in_clause = true;
+
+    if is_none {
+        // A NONE clause runs unconditionally once control reaches it.
+        return Ok(());
+    }
+
+    let conditions: Vec<Condition> = if is_value {
+        let subject = subject.clone().expect("VALUE implies DECIDE ON");
+        split_value_list(&tokens[1..], line)?
+            .into_iter()
+            .map(|operand| Condition {
+                left: subject.clone(),
+                op: CompareOp::Eq,
+                right: operand,
+            })
+            .collect()
+    } else {
+        vec![parse_condition(&tokens[1..], line)?]
+    };
+
+    let body_start = program.statements.len() + conditions.len() + 1;
+    for condition in conditions {
+        program.statements.push(Statement::IfTrueJump {
+            condition,
+            target: body_start,
+            line,
+        });
+    }
+    let pending = program.statements.len();
+    program
+        .statements
+        .push(Statement::Jump { target: usize::MAX });
+
+    if let Some(OpenBlock::Decide { pending_next, .. }) = blocks.last_mut() {
+        *pending_next = Some(pending);
+    }
+    Ok(())
+}
+
+fn clause_is_none(tokens: &[Token]) -> bool {
+    matches!(tokens.get(1), Some(Token::Word { text, .. }) if text.eq_ignore_ascii_case("NONE"))
+}
+
+/// Splits a `VALUE 1, 2, 3` list, tolerating commas attached to either side.
+fn split_value_list(tokens: &[Token], line: usize) -> Result<Vec<Operand>, NaturalError> {
+    let mut operands = Vec::new();
+    for token in tokens {
+        match token {
+            Token::Word { text, line: l } => {
+                let trimmed = text.trim_matches(',');
+                if trimmed.is_empty() {
+                    continue;
+                }
+                operands.push(operand_from(
+                    &Token::Word {
+                        text: trimmed.to_string(),
+                        line: *l,
+                    },
+                    line,
+                )?);
+            }
+            Token::Text { .. } => operands.push(operand_from(token, line)?),
+            Token::Newline => {}
+        }
+    }
+    if operands.is_empty() {
+        return Err(NaturalError::UnknownStatement {
+            name: "a VALUE clause with no value, as in VALUE 1".to_string(),
+            line,
+        });
+    }
+    Ok(operands)
 }
 
 /// Parses `[ROUNDED] #TARGET = <expression>`.
