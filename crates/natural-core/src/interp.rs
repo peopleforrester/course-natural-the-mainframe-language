@@ -3,9 +3,9 @@
 
 use crate::error::NaturalError;
 use crate::parser::{ArithOp, Condition, Expr, Operand, Program, Statement, WriteItem};
-use crate::value::{Format, Value, coerce, render_field};
+use crate::value::{Format, Value, coerce, print_width, render_field};
 use rust_decimal::{Decimal, RoundingStrategy};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
 use std::str::FromStr;
 
 /// What the interpreter is waiting for while suspended.
@@ -67,6 +67,11 @@ pub struct Interpreter {
     fields: BTreeMap<String, Field>,
     pc: usize,
     pending_input: Option<PendingInput>,
+    /// Lines a single statement produced, drained one per `step` call. DISPLAY emits a
+    /// header, an underline, a blank line, and a data row on its first execution.
+    pending_output: VecDeque<String>,
+    /// DISPLAY generates its headers once per report, not once per row.
+    header_emitted: bool,
     steps: usize,
     step_limit: usize,
 }
@@ -88,6 +93,8 @@ impl Interpreter {
             fields,
             pc: 0,
             pending_input: None,
+            pending_output: VecDeque::new(),
+            header_emitted: false,
             steps: 0,
             step_limit: DEFAULT_STEP_LIMIT,
         }
@@ -116,6 +123,12 @@ impl Interpreter {
     /// recursive evaluator could not be paused, and INPUT requires pausing.
     pub fn step(&mut self) -> Result<Step, NaturalError> {
         loop {
+            // Lines already produced are handed over one at a time before anything else
+            // happens, so a multi-line statement cannot interleave with a suspension.
+            if let Some(line) = self.pending_output.pop_front() {
+                return Ok(Step::Output(line));
+            }
+
             // A partially satisfied INPUT is resumed before the program counter moves, so
             // calling step again without supplying a value asks again rather than
             // silently skipping the field.
@@ -167,7 +180,33 @@ impl Interpreter {
                     // them absent. They are invisible in a terminal, so this interpreter
                     // trims them as a deliberate course convention. See
                     // research/verification/v07-output-formatting.md.
-                    return Ok(Step::Output(parts.join(" ").trim_end().to_string()));
+                    self.pending_output
+                        .push_back(parts.join(" ").trim_end().to_string());
+                }
+
+                Statement::Display { fields, line } => {
+                    let columns = self.display_columns(&fields, line)?;
+                    if !self.header_emitted {
+                        self.header_emitted = true;
+                        self.pending_output.push_back(join_columns(
+                            columns.iter().map(|c| center(&c.header, c.width)),
+                        ));
+                        self.pending_output
+                            .push_back(join_columns(columns.iter().map(|c| "-".repeat(c.width))));
+                        // Natural always generates exactly one blank line between the
+                        // underlining and the data.
+                        self.pending_output.push_back(String::new());
+                    }
+                    let row = join_columns(columns.iter().map(|c| {
+                        // A field narrower than its header sits at the left of the column;
+                        // the value's own justification happens inside the field width.
+                        let mut cell = c.rendered.clone();
+                        while cell.chars().count() < c.width {
+                            cell.push(' ');
+                        }
+                        cell
+                    }));
+                    self.pending_output.push_back(row);
                 }
 
                 Statement::Move {
@@ -314,6 +353,42 @@ impl Interpreter {
         Ok(condition.op.holds(ordering))
     }
 
+    /// Builds the column layout for one DISPLAY statement.
+    ///
+    /// Column width is the greater of the field's print width and its header width, and the
+    /// header for a user-defined variable is the variable name including its leading `#`.
+    /// Both rules are quoted from the DISPLAY statement reference in
+    /// `research/07-output-formatting-semantics.md`.
+    ///
+    /// Natural fixes the headers from the FIRST DISPLAY statement at compile time. This
+    /// interpreter fixes them at the first DISPLAY executed, which is equivalent for the
+    /// single-report programs the teaching subset covers.
+    fn display_columns(
+        &self,
+        fields: &[(String, usize)],
+        line: usize,
+    ) -> Result<Vec<DisplayColumn>, NaturalError> {
+        let mut columns = Vec::with_capacity(fields.len());
+        for (name, field_line) in fields {
+            let field = self
+                .fields
+                .get(name)
+                .ok_or_else(|| NaturalError::UndeclaredVariable {
+                    name: name.clone(),
+                    line: *field_line,
+                })?;
+            let header = name.clone();
+            let width = print_width(&field.format).max(header.chars().count());
+            columns.push(DisplayColumn {
+                rendered: render_field(&field.value, &field.format),
+                header,
+                width,
+            });
+        }
+        let _ = line;
+        Ok(columns)
+    }
+
     /// Evaluates an arithmetic expression.
     ///
     /// This recurses over the expression tree, which is allowed: the no-recursion rule
@@ -433,6 +508,34 @@ impl PendingInput {
             field: name.clone(),
         })
     }
+}
+
+/// One DISPLAY column: its generated header, its width, and this row's rendered value.
+struct DisplayColumn {
+    header: String,
+    width: usize,
+    rendered: String,
+}
+
+/// Joins columns with the single blank that separates them, trimming the line end.
+fn join_columns(cells: impl Iterator<Item = String>) -> String {
+    cells.collect::<Vec<_>>().join(" ").trim_end().to_string()
+}
+
+/// Centers a header over its column.
+///
+/// The documentation states the header is centered when the field is wider, and both
+/// measured examples have symmetric padding, so they do not settle where the odd blank goes
+/// when the padding is odd. This puts it on the right, and lesson fixtures should avoid
+/// depending on that case until it is verified.
+fn center(text: &str, width: usize) -> String {
+    let len = text.chars().count();
+    if len >= width {
+        return text.to_string();
+    }
+    let pad = width - len;
+    let left = pad / 2;
+    format!("{}{}{}", " ".repeat(left), text, " ".repeat(pad - left))
 }
 
 /// Applies a target field's decimal scale to a computed result.

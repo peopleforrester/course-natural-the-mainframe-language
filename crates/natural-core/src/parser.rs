@@ -27,6 +27,11 @@ pub enum Statement {
     Write {
         items: Vec<WriteItem>,
     },
+    /// Column-oriented report output, with generated headers and an underline.
+    Display {
+        fields: Vec<(String, usize)>,
+        line: usize,
+    },
     Move {
         source: Operand,
         target: String,
@@ -361,6 +366,29 @@ fn parse_line(
             name: "END-DEFINE without a DEFINE DATA block".to_string(),
             line,
         }),
+        "DISPLAY" => {
+            let mut fields = Vec::new();
+            for token in &tokens[1..] {
+                match token {
+                    Token::Word { text, line: l } => fields.push((normalize(text), *l)),
+                    Token::Text { .. } => {
+                        return Err(NaturalError::NotYetSupported {
+                            feature: "a header literal in DISPLAY".to_string(),
+                            line,
+                        });
+                    }
+                    Token::Newline => {}
+                }
+            }
+            if fields.is_empty() {
+                return Err(NaturalError::UnknownStatement {
+                    name: "DISPLAY with no fields, as in DISPLAY #NAME #AGE".to_string(),
+                    line,
+                });
+            }
+            program.statements.push(Statement::Display { fields, line });
+            Ok(false)
+        }
         "WRITE" => {
             program.statements.push(parse_write(tokens, line)?);
             Ok(false)
