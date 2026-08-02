@@ -123,6 +123,39 @@ pub enum Statement {
         key: usize,
         target: usize,
     },
+    /// Append the view buffer as a new record.
+    Store {
+        view: String,
+        line: usize,
+    },
+    /// Write the view buffer back over the record the active loop is holding.
+    UpdateRecord {
+        line: usize,
+    },
+    /// Remove the record the active loop is holding.
+    DeleteRecord {
+        line: usize,
+    },
+    /// Commit every change made since the last transaction boundary.
+    EndTransaction,
+    /// Discard every change made since the last transaction boundary.
+    BackoutTransaction,
+    /// Read distinct values of a descriptor, with *NUMBER holding each value's count.
+    HistogramInit {
+        view: String,
+        descriptor: String,
+        limit: Option<usize>,
+        key: usize,
+        exit: usize,
+        line: usize,
+    },
+    /// Advance a histogram to the next distinct value.
+    HistogramNext {
+        key: usize,
+        descriptor: String,
+        top: usize,
+        line: usize,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -235,6 +268,13 @@ enum OpenBlock {
         escapes: Vec<PendingEscape>,
         line: usize,
     },
+    Histogram {
+        init: usize,
+        descriptor: String,
+        body_start: usize,
+        escapes: Vec<PendingEscape>,
+        line: usize,
+    },
     Find {
         key: usize,
         view: String,
@@ -274,6 +314,7 @@ impl OpenBlock {
             | OpenBlock::Repeat { line, .. }
             | OpenBlock::Read { line, .. }
             | OpenBlock::Find { line, .. }
+            | OpenBlock::Histogram { line, .. }
             | OpenBlock::Decide { line, .. } => *line,
         }
     }
@@ -287,6 +328,7 @@ impl OpenBlock {
                 | OpenBlock::Repeat { .. }
                 | OpenBlock::Read { .. }
                 | OpenBlock::Find { .. }
+                | OpenBlock::Histogram { .. }
         )
     }
 }
@@ -381,6 +423,11 @@ pub fn parse(source: &str) -> Result<Program, NaturalError> {
                 closer: "END-FIND".to_string(),
                 line,
             },
+            OpenBlock::Histogram { .. } => NaturalError::MissingLoopEnd {
+                keyword: "HISTOGRAM".to_string(),
+                closer: "END-HISTOGRAM".to_string(),
+                line,
+            },
             OpenBlock::Decide { .. } => NaturalError::MissingLoopEnd {
                 keyword: "DECIDE".to_string(),
                 closer: "END-DECIDE".to_string(),
@@ -447,6 +494,12 @@ fn parse_line(
     *mode = Mode::Body;
 
     match head.as_str() {
+        // END TRANSACTION is a statement. It has to be tested before the bare END arm,
+        // because match arms are tried in order and a bare END terminates the program.
+        "END" if is_transaction_boundary(tokens) => {
+            program.statements.push(Statement::EndTransaction);
+            Ok(false)
+        }
         "END" => Ok(true),
         "END-DEFINE" => Err(NaturalError::UnknownStatement {
             name: "END-DEFINE without a DEFINE DATA block".to_string(),
@@ -704,6 +757,76 @@ fn parse_line(
             patch_escapes(program, escapes, after, next);
             Ok(false)
         }
+        "STORE" => {
+            // STORE EMPLOYEES-VIEW, and the fuller STORE RECORD IN EMPLOYEES-VIEW.
+            let words: Vec<String> = tokens.iter().filter_map(word_text).collect();
+            let view = words
+                .iter()
+                .skip(1)
+                .find(|w| !matches!(w.as_str(), "RECORD" | "IN" | "FILE"))
+                .ok_or_else(|| NaturalError::UnknownStatement {
+                    name: "STORE without a view, as in STORE EMPLOYEES-VIEW".to_string(),
+                    line,
+                })?
+                .clone();
+            program.statements.push(Statement::Store { view, line });
+            Ok(false)
+        }
+        "UPDATE" => {
+            program.statements.push(Statement::UpdateRecord { line });
+            Ok(false)
+        }
+        "DELETE" => {
+            program.statements.push(Statement::DeleteRecord { line });
+            Ok(false)
+        }
+        "BACKOUT" => {
+            program.statements.push(Statement::BackoutTransaction);
+            Ok(false)
+        }
+        "HISTOGRAM" => {
+            let (view, descriptor, limit) = parse_histogram_header(&tokens[1..], line)?;
+            let init = program.statements.len();
+            program.statements.push(Statement::HistogramInit {
+                view: view.clone(),
+                descriptor: descriptor.clone(),
+                limit,
+                key: init,
+                exit: usize::MAX,
+                line,
+            });
+            blocks.push(OpenBlock::Histogram {
+                init,
+                descriptor,
+                body_start: program.statements.len(),
+                escapes: Vec::new(),
+                line,
+            });
+            Ok(false)
+        }
+        "END-HISTOGRAM" => {
+            let Some(OpenBlock::Histogram {
+                init,
+                descriptor,
+                body_start,
+                escapes,
+                ..
+            }) = pop_matching(blocks, |b| matches!(b, OpenBlock::Histogram { .. }))
+            else {
+                return Err(block_mismatch("END-HISTOGRAM", "HISTOGRAM", line));
+            };
+            let next = program.statements.len();
+            program.statements.push(Statement::HistogramNext {
+                key: init,
+                descriptor,
+                top: body_start,
+                line,
+            });
+            let after = program.statements.len();
+            patch_target(program, init, after);
+            patch_escapes(program, escapes, after, next);
+            Ok(false)
+        }
         "READ" => {
             let (view, by, limit) = parse_read_header(&tokens[1..], line)?;
             let init = program.statements.len();
@@ -853,7 +976,8 @@ fn parse_line(
                 OpenBlock::For { escapes, .. }
                 | OpenBlock::Repeat { escapes, .. }
                 | OpenBlock::Read { escapes, .. }
-                | OpenBlock::Find { escapes, .. } => {
+                | OpenBlock::Find { escapes, .. }
+                | OpenBlock::Histogram { escapes, .. } => {
                     escapes.push(PendingEscape { index, kind });
                 }
                 _ => unreachable!("is_loop guarantees a loop block"),
@@ -1102,7 +1226,8 @@ fn patch_target(program: &mut Program, index: usize, target: usize) {
         | Statement::Jump { target: t }
         | Statement::ForInit { exit: t, .. }
         | Statement::ReadInit { exit: t, .. }
-        | Statement::JumpIfNoRecords { target: t, .. } => *t = target,
+        | Statement::JumpIfNoRecords { target: t, .. }
+        | Statement::HistogramInit { exit: t, .. } => *t = target,
         _ => unreachable!("only jump instructions are ever patched"),
     }
 }
@@ -1187,6 +1312,50 @@ fn parse_repeat_guard(
         }
     };
     Ok(Some((parse_condition(&tokens[1..], line)?, exit_when_true)))
+}
+
+/// True for `END TRANSACTION`, which is a statement rather than the program terminator.
+fn is_transaction_boundary(tokens: &[Token]) -> bool {
+    matches!(tokens.get(1), Some(Token::Word { text, .. })
+        if text.eq_ignore_ascii_case("TRANSACTION"))
+}
+
+/// Parses `[(limit)] <view> FOR <descriptor>`.
+#[allow(clippy::type_complexity)]
+fn parse_histogram_header(
+    tokens: &[Token],
+    line: usize,
+) -> Result<(String, String, Option<usize>), NaturalError> {
+    let malformed = || NaturalError::UnknownStatement {
+        name: "a HISTOGRAM. Write it as HISTOGRAM EMPLOYEES-VIEW FOR COUNTRY".to_string(),
+        line,
+    };
+    let words: Vec<Option<String>> = tokens.iter().map(keyword_at).collect();
+    let word = |i: usize| words.get(i).and_then(|w| w.as_deref());
+    let mut at = 0;
+
+    let mut limit = None;
+    if word(0) == Some("(") {
+        limit = Some(
+            word(1)
+                .ok_or_else(malformed)?
+                .parse::<usize>()
+                .map_err(|_| malformed())?,
+        );
+        if word(2) != Some(")") {
+            return Err(malformed());
+        }
+        at = 3;
+    }
+
+    let view = word(at).ok_or_else(malformed)?.to_string();
+    at += 1;
+    // FOR and IN both introduce the descriptor in the documented syntax.
+    if !matches!(word(at), Some("FOR") | Some("IN")) {
+        return Err(malformed());
+    }
+    let descriptor = word(at + 1).ok_or_else(malformed)?.to_string();
+    Ok((view, descriptor, limit))
 }
 
 /// True for the `IF NO RECORDS FOUND` form, which is a FIND clause rather than an IF.
