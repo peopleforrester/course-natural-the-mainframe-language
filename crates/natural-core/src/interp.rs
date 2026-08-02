@@ -63,6 +63,11 @@ pub struct Field {
 /// several orders of magnitude clear of legitimate work.
 pub const DEFAULT_STEP_LIMIT: usize = 1_000_000;
 
+/// How deep PERFORM and CALLNAT may nest before the program is assumed to be recursing
+/// without end. Real Natural programs nest a handful of levels; this is far above that
+/// while still catching a routine that performs itself.
+pub const MAX_CALL_DEPTH: usize = 256;
+
 pub struct Interpreter {
     program: Program,
     fields: BTreeMap<String, Field>,
@@ -87,6 +92,13 @@ pub struct Interpreter {
     current_record: Option<usize>,
     /// Distinct descriptor values a HISTOGRAM is walking, keyed by loop.
     histograms: BTreeMap<usize, HistogramCursor>,
+    /// Return addresses for PERFORM. This lives here rather than on the Rust call stack
+    /// precisely so a suspension can happen several frames deep and still resume.
+    call_stack: Vec<usize>,
+    /// Callers waiting for the object currently executing.
+    frames: Vec<SavedFrame>,
+    /// The subprogram objects CALLNAT can reach.
+    library: Library,
     /// A view-binding problem found while constructing, surfaced on the first `step` so
     /// that construction can stay infallible.
     init_error: Option<NaturalError>,
@@ -106,6 +118,51 @@ struct ViewBinding {
 struct ReadCursor {
     records: Vec<usize>,
     next: usize,
+}
+
+/// The subprogram objects a program may call.
+///
+/// Natural programs live in a library alongside the subprograms they use. A lesson
+/// supplies that library, so a learner can call a routine without also having to write it.
+#[derive(Debug, Clone, Default)]
+pub struct Library {
+    objects: BTreeMap<String, String>,
+}
+
+impl Library {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn add(&mut self, name: &str, source: &str) {
+        self.objects
+            .insert(name.to_ascii_uppercase(), source.to_string());
+    }
+
+    pub fn get(&self, name: &str) -> Option<&str> {
+        self.objects
+            .get(&name.to_ascii_uppercase())
+            .map(String::as_str)
+    }
+}
+
+/// A caller's execution state, kept while a subprogram runs.
+///
+/// Subprogram calls push onto this stack rather than recursing into another `step`, so a
+/// suspension inside a called object resumes correctly. It is the same reason the
+/// interpreter never recurses for statements.
+struct SavedFrame {
+    program: Program,
+    pc: usize,
+    fields: BTreeMap<String, Field>,
+    views: BTreeMap<String, ViewBinding>,
+    cursors: BTreeMap<usize, ReadCursor>,
+    histograms: BTreeMap<usize, HistogramCursor>,
+    call_stack: Vec<usize>,
+    current_record: Option<usize>,
+    /// Caller variable paired with the callee parameter whose value returns to it.
+    /// Literal arguments have no destination and are absent.
+    returns: Vec<(String, String)>,
 }
 
 /// A HISTOGRAM's distinct descriptor values, each with how many records carry it.
@@ -148,6 +205,9 @@ impl Interpreter {
             committed: Database::sample(),
             current_record: None,
             histograms: BTreeMap::new(),
+            call_stack: Vec::new(),
+            frames: Vec::new(),
+            library: Library::new(),
             views: BTreeMap::new(),
             cursors: BTreeMap::new(),
             pc: 0,
@@ -207,6 +267,12 @@ impl Interpreter {
         self
     }
 
+    /// Supplies the subprogram objects this program may CALLNAT.
+    pub fn with_library(mut self, library: Library) -> Self {
+        self.library = library;
+        self
+    }
+
     /// Overrides the runaway-loop cap. Lower it to keep tests fast; raise it only for a
     /// lesson that genuinely needs more work than the default allows.
     pub fn with_step_limit(mut self, limit: usize) -> Self {
@@ -255,7 +321,12 @@ impl Interpreter {
             }
 
             let Some(statement) = self.program.statements.get(self.pc).cloned() else {
-                return Ok(Step::Done);
+                // The end of a subprogram is a return, not the end of the run.
+                if self.frames.is_empty() {
+                    return Ok(Step::Done);
+                }
+                self.return_from_subprogram();
+                continue;
             };
             self.pc += 1;
 
@@ -524,6 +595,33 @@ impl Interpreter {
                     }
                 }
 
+                Statement::Perform { name, line } => {
+                    let Some(target) = self.program.subroutines.get(&name).copied() else {
+                        return Err(NaturalError::UnknownSubroutine { name, line });
+                    };
+                    if self.call_stack.len() >= MAX_CALL_DEPTH {
+                        return Err(NaturalError::CallStackTooDeep {
+                            limit: MAX_CALL_DEPTH,
+                        });
+                    }
+                    // self.pc already points past the PERFORM, so it is the return address.
+                    self.call_stack.push(self.pc);
+                    self.pc = target;
+                }
+
+                Statement::ReturnFromSubroutine => {
+                    // Falling off the end of a definition that was never performed simply
+                    // continues, which cannot happen in practice because the definition is
+                    // jumped over, but costs nothing to handle.
+                    if let Some(back) = self.call_stack.pop() {
+                        self.pc = back;
+                    }
+                }
+
+                Statement::Callnat { name, args, line } => {
+                    self.enter_subprogram(&name, &args, line)?;
+                }
+
                 Statement::Store { view, line } => {
                     let binding = self.view_binding(&view, line)?;
                     let buffer = self.view_buffer(&binding);
@@ -665,6 +763,126 @@ impl Interpreter {
         let right = self.resolve(&condition.right)?;
 
         compare(&left, &right, condition.op, line)
+    }
+
+    /// Compiles a subprogram, binds its parameters, and makes it the executing object.
+    fn enter_subprogram(
+        &mut self,
+        name: &str,
+        args: &[Operand],
+        line: usize,
+    ) -> Result<(), NaturalError> {
+        let Some(source) = self.library.get(name).map(str::to_string) else {
+            return Err(NaturalError::UnknownSubprogram {
+                name: name.to_string(),
+                line,
+            });
+        };
+        if self.frames.len() >= MAX_CALL_DEPTH {
+            return Err(NaturalError::CallStackTooDeep {
+                limit: MAX_CALL_DEPTH,
+            });
+        }
+
+        // A failure inside a called object says which object failed, because the line
+        // number alone would point at source the learner may not have written.
+        let named = |error: NaturalError| NaturalError::InSubprogram {
+            name: name.to_string(),
+            source_message: error.to_string(),
+        };
+        let program = crate::parser::parse(&source).map_err(named)?;
+
+        if program.parameters.len() != args.len() {
+            return Err(NaturalError::ParameterCountMismatch {
+                name: name.to_string(),
+                expected: program.parameters.len(),
+                given: args.len(),
+                line,
+            });
+        }
+
+        // Values in, by position. A subprogram cannot see the caller's other fields, which
+        // is the whole difference between it and an inline subroutine.
+        let mut incoming = Vec::with_capacity(args.len());
+        for (parameter, argument) in program.parameters.iter().zip(args) {
+            let value = self.resolve(argument)?;
+            let coerced = coerce(value, &parameter.format, &parameter.name, line)?;
+            incoming.push((parameter.name.clone(), coerced));
+        }
+
+        // Results come back to whichever arguments were variables.
+        let returns = program
+            .parameters
+            .iter()
+            .zip(args)
+            .filter_map(|(parameter, argument)| match argument {
+                Operand::Variable { name, .. } => Some((name.clone(), parameter.name.clone())),
+                Operand::Literal(_) => None,
+            })
+            .collect();
+
+        let mut callee = Interpreter::new(program);
+        for (field_name, value) in incoming {
+            if let Some(field) = callee.fields.get_mut(&field_name) {
+                field.value = value;
+            }
+        }
+        if let Some(error) = callee.init_error.take() {
+            return Err(named(error));
+        }
+
+        // Swap the callee in and keep the caller for when it returns. The database is
+        // shared, because a subprogram reads and writes the same file the caller does.
+        self.frames.push(SavedFrame {
+            program: std::mem::replace(&mut self.program, callee.program),
+            pc: std::mem::replace(&mut self.pc, 0),
+            fields: std::mem::replace(&mut self.fields, callee.fields),
+            views: std::mem::replace(&mut self.views, callee.views),
+            cursors: std::mem::take(&mut self.cursors),
+            histograms: std::mem::take(&mut self.histograms),
+            call_stack: std::mem::take(&mut self.call_stack),
+            current_record: self.current_record.take(),
+            returns,
+        });
+        Ok(())
+    }
+
+    /// Restores the caller and hands back the parameter values.
+    fn return_from_subprogram(&mut self) {
+        let Some(frame) = self.frames.pop() else {
+            return;
+        };
+        let results: Vec<(String, Value)> = frame
+            .returns
+            .iter()
+            .filter_map(|(caller_var, parameter)| {
+                self.fields
+                    .get(parameter)
+                    .map(|field| (caller_var.clone(), field.value.clone()))
+            })
+            .collect();
+
+        self.program = frame.program;
+        self.pc = frame.pc;
+        self.fields = frame.fields;
+        self.views = frame.views;
+        self.cursors = frame.cursors;
+        self.histograms = frame.histograms;
+        self.call_stack = frame.call_stack;
+        self.current_record = frame.current_record;
+
+        for (caller_var, value) in results {
+            // Coercing into the caller's own format keeps its declared length and scale
+            // authoritative, exactly as an assignment would.
+            let Some(format) = self.fields.get(&caller_var).map(|f| f.format.clone()) else {
+                continue;
+            };
+            if let Ok(coerced) = coerce(value, &format, &caller_var, 0)
+                && let Some(slot) = self.fields.get_mut(&caller_var)
+            {
+                slot.value = coerced;
+            }
+        }
     }
 
     /// The values a view's fields currently hold, ready to be written to the database.

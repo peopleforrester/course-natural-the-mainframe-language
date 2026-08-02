@@ -156,6 +156,19 @@ pub enum Statement {
         top: usize,
         line: usize,
     },
+    /// Call an inline subroutine, remembering where to come back to.
+    Perform {
+        name: String,
+        line: usize,
+    },
+    /// Call a separate subprogram object, passing arguments to its parameter block.
+    Callnat {
+        name: String,
+        args: Vec<Operand>,
+        line: usize,
+    },
+    /// Return to whatever performed this subroutine.
+    ReturnFromSubroutine,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -268,6 +281,11 @@ enum OpenBlock {
         escapes: Vec<PendingEscape>,
         line: usize,
     },
+    Subroutine {
+        /// The jump that carries normal flow past the definition.
+        skip: usize,
+        line: usize,
+    },
     Histogram {
         init: usize,
         descriptor: String,
@@ -315,6 +333,7 @@ impl OpenBlock {
             | OpenBlock::Read { line, .. }
             | OpenBlock::Find { line, .. }
             | OpenBlock::Histogram { line, .. }
+            | OpenBlock::Subroutine { line, .. }
             | OpenBlock::Decide { line, .. } => *line,
         }
     }
@@ -353,8 +372,14 @@ pub struct ViewDeclaration {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Program {
     pub declarations: Vec<Declaration>,
+    /// Fields declared in a DEFINE DATA PARAMETER block, in order. These are what a
+    /// CALLNAT binds to, and their order is the call's parameter order.
+    pub parameters: Vec<Declaration>,
     pub views: Vec<ViewDeclaration>,
     pub statements: Vec<Statement>,
+    /// Where each inline subroutine's body begins. Names resolve at run time, so a
+    /// subroutine may be performed before the line that defines it.
+    pub subroutines: std::collections::BTreeMap<String, usize>,
 }
 
 /// Natural identifiers are not case sensitive, so every name is stored folded.
@@ -362,13 +387,15 @@ pub fn normalize(name: &str) -> String {
     name.to_ascii_uppercase()
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone, Copy)]
 enum Mode {
     /// Before any executable statement, where a DEFINE DATA block may still open.
     Preamble,
-    /// Inside the DEFINE DATA block, reading field declarations.
+    /// Inside a DEFINE DATA LOCAL block.
     DataBlock,
-    /// After the data block, reading executable statements.
+    /// Inside a DEFINE DATA PARAMETER block, whose fields become the call interface.
+    ParameterBlock,
+    /// After the data blocks, reading executable statements.
     Body,
 }
 
@@ -428,6 +455,11 @@ pub fn parse(source: &str) -> Result<Program, NaturalError> {
                 closer: "END-HISTOGRAM".to_string(),
                 line,
             },
+            OpenBlock::Subroutine { .. } => NaturalError::MissingLoopEnd {
+                keyword: "DEFINE SUBROUTINE".to_string(),
+                closer: "END-SUBROUTINE".to_string(),
+                line,
+            },
             OpenBlock::Decide { .. } => NaturalError::MissingLoopEnd {
                 keyword: "DECIDE".to_string(),
                 closer: "END-DECIDE".to_string(),
@@ -467,9 +499,11 @@ fn parse_line(
         Token::Newline => return Ok(false),
     };
 
-    if *mode == Mode::DataBlock {
+    if matches!(*mode, Mode::DataBlock | Mode::ParameterBlock) {
         if head == "END-DEFINE" {
-            *mode = Mode::Body;
+            // Back to the preamble rather than the body, because a program may declare a
+            // PARAMETER block and a LOCAL block one after the other.
+            *mode = Mode::Preamble;
             return Ok(false);
         }
         // Reaching the end of the program while still inside the block means END-DEFINE
@@ -477,7 +511,27 @@ fn parse_line(
         if head == "END" {
             return Err(NaturalError::MissingEndDefine);
         }
-        parse_declaration(tokens, line, program)?;
+        parse_declaration(tokens, line, program, *mode == Mode::ParameterBlock)?;
+        return Ok(false);
+    }
+
+    // DEFINE SUBROUTINE is a statement, unlike DEFINE DATA which opens the data block.
+    if head == "DEFINE" && is_subroutine_definition(tokens) {
+        *mode = Mode::Body;
+        let name = subroutine_name(tokens, line)?;
+        if program.subroutines.contains_key(&name) {
+            return Err(NaturalError::DuplicateSubroutine { name, line });
+        }
+        // Normal flow jumps over the definition; only PERFORM enters it.
+        let skip = program.statements.len();
+        program
+            .statements
+            .push(Statement::Jump { target: usize::MAX });
+        program
+            .subroutines
+            .insert(name.clone(), program.statements.len());
+        program.subroutines.insert(name, program.statements.len());
+        blocks.push(OpenBlock::Subroutine { skip, line });
         return Ok(false);
     }
 
@@ -485,8 +539,7 @@ fn parse_line(
         if *mode != Mode::Preamble {
             return Err(NaturalError::DefineDataNotFirst { line });
         }
-        parse_define_data_header(tokens, line)?;
-        *mode = Mode::DataBlock;
+        *mode = parse_define_data_header(tokens, line)?;
         return Ok(false);
     }
 
@@ -757,6 +810,50 @@ fn parse_line(
             patch_escapes(program, escapes, after, next);
             Ok(false)
         }
+        "CALLNAT" => {
+            let Some(Token::Text { value, .. }) = tokens.get(1) else {
+                return Err(NaturalError::UnknownStatement {
+                    name: "CALLNAT without a subprogram name, as in CALLNAT 'DOUBLE-IT' #A"
+                        .to_string(),
+                    line,
+                });
+            };
+            let mut args = Vec::new();
+            for token in &tokens[2..] {
+                if matches!(token, Token::Newline) {
+                    continue;
+                }
+                args.push(operand_from(token, line)?);
+            }
+            program.statements.push(Statement::Callnat {
+                name: normalize(value),
+                args,
+                line,
+            });
+            Ok(false)
+        }
+        "PERFORM" => {
+            let words: Vec<String> = tokens.iter().filter_map(word_text).collect();
+            let name = words
+                .get(1)
+                .cloned()
+                .ok_or_else(|| NaturalError::UnknownStatement {
+                    name: "PERFORM without a subroutine name".to_string(),
+                    line,
+                })?;
+            program.statements.push(Statement::Perform { name, line });
+            Ok(false)
+        }
+        "END-SUBROUTINE" => {
+            let Some(OpenBlock::Subroutine { skip, .. }) =
+                pop_matching(blocks, |b| matches!(b, OpenBlock::Subroutine { .. }))
+            else {
+                return Err(block_mismatch("END-SUBROUTINE", "DEFINE SUBROUTINE", line));
+            };
+            program.statements.push(Statement::ReturnFromSubroutine);
+            patch_target(program, skip, program_len(program));
+            Ok(false)
+        }
         "STORE" => {
             // STORE EMPLOYEES-VIEW, and the fuller STORE RECORD IN EMPLOYEES-VIEW.
             let words: Vec<String> = tokens.iter().filter_map(word_text).collect();
@@ -1012,7 +1109,7 @@ fn parse_line(
     }
 }
 
-fn parse_define_data_header(tokens: &[Token], line: usize) -> Result<(), NaturalError> {
+fn parse_define_data_header(tokens: &[Token], line: usize) -> Result<Mode, NaturalError> {
     let words: Vec<String> = tokens.iter().filter_map(word_text).collect();
     match words.get(1).map(|w| w.as_str()) {
         Some("DATA") => {}
@@ -1025,7 +1122,8 @@ fn parse_define_data_header(tokens: &[Token], line: usize) -> Result<(), Natural
     }
     match words.get(2).map(|w| w.as_str()) {
         // A bare DEFINE DATA is treated as LOCAL, which is what the teaching subset uses.
-        None | Some("LOCAL") => Ok(()),
+        None | Some("LOCAL") => Ok(Mode::DataBlock),
+        Some("PARAMETER") => Ok(Mode::ParameterBlock),
         Some(other) => Err(NaturalError::NotYetSupported {
             feature: format!("DEFINE DATA {other}"),
             line,
@@ -1037,6 +1135,7 @@ fn parse_declaration(
     tokens: &[Token],
     line: usize,
     program: &mut Program,
+    is_parameter: bool,
 ) -> Result<(), NaturalError> {
     let words: Vec<String> = tokens.iter().filter_map(word_text).collect();
 
@@ -1114,9 +1213,11 @@ fn parse_declaration(
         });
     }
 
-    program
-        .declarations
-        .push(Declaration { name, format, line });
+    let declaration = Declaration { name, format, line };
+    if is_parameter {
+        program.parameters.push(declaration.clone());
+    }
+    program.declarations.push(declaration);
     Ok(())
 }
 
@@ -1312,6 +1413,22 @@ fn parse_repeat_guard(
         }
     };
     Ok(Some((parse_condition(&tokens[1..], line)?, exit_when_true)))
+}
+
+/// True for `DEFINE SUBROUTINE`, which is a statement rather than a data block opener.
+fn is_subroutine_definition(tokens: &[Token]) -> bool {
+    matches!(tokens.get(1), Some(Token::Word { text, .. })
+        if text.eq_ignore_ascii_case("SUBROUTINE"))
+}
+
+fn subroutine_name(tokens: &[Token], line: usize) -> Result<String, NaturalError> {
+    match tokens.get(2) {
+        Some(Token::Word { text, .. }) => Ok(normalize(text)),
+        _ => Err(NaturalError::UnknownStatement {
+            name: "DEFINE SUBROUTINE without a name".to_string(),
+            line,
+        }),
+    }
 }
 
 /// True for `END TRANSACTION`, which is a statement rather than the program terminator.

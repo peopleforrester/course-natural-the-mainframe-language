@@ -135,6 +135,42 @@ pub enum NaturalError {
     )]
     NoCurrentRecord { statement: String, line: usize },
 
+    #[error(
+        "Line {line}: there is no subroutine called '{name}'. Define it with \
+         DEFINE SUBROUTINE {name} before performing it."
+    )]
+    UnknownSubroutine { name: String, line: usize },
+
+    #[error("Line {line}: a subroutine called '{name}' is already defined.")]
+    DuplicateSubroutine { name: String, line: usize },
+
+    #[error(
+        "This program nested more than {limit} calls deep, which usually means a routine \
+         performs itself with nothing to stop it. Check that each PERFORM eventually \
+         reaches an END-SUBROUTINE without calling back into the same routine."
+    )]
+    CallStackTooDeep { limit: usize },
+
+    #[error("Line {line}: there is no subprogram called '{name}' in this library.")]
+    UnknownSubprogram { name: String, line: usize },
+
+    #[error(
+        "Line {line}: '{name}' expects {expected} parameter(s) but {given} were passed. \
+         The call has to match the subprogram's DEFINE DATA PARAMETER block."
+    )]
+    ParameterCountMismatch {
+        name: String,
+        expected: usize,
+        given: usize,
+        line: usize,
+    },
+
+    #[error("In subprogram '{name}': {source_message}")]
+    InSubprogram {
+        name: String,
+        source_message: String,
+    },
+
     #[error("Line {line}: cannot divide by zero.")]
     DivisionByZero { line: usize },
 
