@@ -10,8 +10,8 @@ per-student cost. The learner writes real Natural and it executes in their own b
 
 ## Status
 
-**Tier 1 is complete and shipped**: modules 1 through 9, an interpreter that executes them,
-and the browser front end that delivers them. 223 tests pass.
+**Tiers 1 and 2 are complete and shipped**: modules 1 through 15, an interpreter that
+executes them, and the browser front end that delivers them. 270 tests pass.
 
 | Module | Covered |
 |--------|---------|
@@ -24,14 +24,17 @@ and the browser front end that delivers them. 223 tests pass.
 | 7. Loops | `FOR`, `REPEAT`, `UNTIL`, `WHILE`, `ESCAPE`, runaway protection |
 | 8. Reading the database | `VIEW OF`, `READ`, `FIND`, `WHERE`, `HISTOGRAM`, `*NUMBER` |
 | 9. Changing the database | `STORE`, `UPDATE`, `DELETE`, `END TRANSACTION`, `BACKOUT` |
-
-Tier 2 (modularization, data areas, `CALLNAT`, real 3270 maps) is a later release. See
-`spec/course-spec.md` for the approved scope.
+| 10. Validating input | `REINPUT` |
+| 11. Subroutines | `DEFINE SUBROUTINE`, `PERFORM`, nesting |
+| 12. Data areas | LOCAL versus PARAMETER, and what each one scopes |
+| 13. Subprograms | `CALLNAT`, parameter passing, object isolation |
+| 14. Maps | `DEFINE MAP`, `INPUT USING MAP`, attribute bytes, AID keys |
+| 15. Capstone | a maintenance program combining all of it |
 
 ## Running it
 
 ```bash
-cargo test --workspace                 # 223 tests
+cargo test --workspace                 # 270 tests
 cargo run -p natural-cli -- examples/capstone.nat
 
 wasm-pack build crates/natural-wasm --target web --out-dir ../../web/pkg --release
@@ -60,6 +63,12 @@ by decision.
 `INPUT` has to suspend the program and hand control back to the browser, and a recursive
 evaluator cannot be paused. This is why the interpreter compiles blocks to a flat
 instruction list with jumps, and it is not retrofittable.
+
+Tier 2 is what that constraint bought. `PERFORM` pushes onto an explicit call stack,
+`CALLNAT` swaps the whole executing object while keeping the caller in a frame stack, and a
+map read suspends on a `Screen`. An `INPUT` two frames deep inside nested subroutines, or
+inside a called subprogram, still resumes correctly. None of that would work if any of them
+had used Rust recursion.
 
 **The interpreter is ours.** A free vendor Community Edition exists, but its licence bars
 using it as a paid course's backend, and there is no academic path. Owning the runtime

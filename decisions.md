@@ -541,3 +541,31 @@ Two process notes worth keeping:
 - Unclosed blocks needed the same treatment maps as DEFINE DATA and DEFINE SUBROUTINE
   already had: reaching END while still inside the layout reports the unclosed block
   rather than complaining that END is not a valid element.
+
+## 2026-08-02T00:00:00Z · 2.3 · Tier 2 shipped and verified in the browser
+
+Modules 10 through 15 are authored and the front end delivers them. Fifteen lessons, 42
+runnable code blocks, 270 tests.
+
+The front end gained what maps require: a screen renderer that paints the interpreter's
+pre-rendered grid, per-field entry that honours the attribute byte (a numeric field refuses
+letters, a hidden field echoes asterisks), an AID key bar so a screen can be ended with
+ENTER or a PF key, and a lesson library of subprograms every run can CALLNAT.
+
+Verification, three passes:
+
+1. Local gate green after a clean rebuild from an empty target directory: 270 tests, zero
+   failures, clippy clean, wasm build clean.
+2. Browser sweep of every lesson block: 42 of 42 execute, including five that present maps,
+   the three deliberate teaching failures fail correctly, and none is silently empty.
+3. Interactive checks against the running page: subroutines produce the same payroll
+   average as the native CLI; CALLNAT into the lesson library returns the right count; a
+   map paints its fields at their declared positions with the right attributes; typing
+   "9X9" into a numeric field yields 99, because the attribute byte rejects the letter; a
+   hidden PIN field never renders its value; and PF3 takes the cancel branch through
+   *PF-KEY while ENTER takes the other.
+
+The positioning constraint from the original contract can now be lifted. Tier 2 is exactly
+the modularization and data-area content spike 02 identified as the difference between
+"can write a program" and job-ready maintenance capability, so the prohibition on claiming
+job-readiness no longer applies.

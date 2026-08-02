@@ -643,4 +643,396 @@ export const LESSONS = [
       },
     ],
   },
+
+  {
+    title: '10. Validating what the operator typed',
+    lede:
+      'A program that reads input has to cope with input it does not want. REINPUT sends ' +
+      'the operator back to the screen with a message saying why.',
+    steps: [
+      {
+        title: 'REINPUT re-asks',
+        body:
+          '<p>Run this and type a number under 18 the first time. The program rejects it, ' +
+          'says why, and asks again. Type something 18 or over to get through.</p>',
+        code:
+          "DEFINE DATA LOCAL\n" +
+          "1 #AGE (N3)\n" +
+          "END-DEFINE\n" +
+          "INPUT 'Age?' #AGE\n" +
+          "IF #AGE < 18\n" +
+          "REINPUT 'You must be at least 18. Try again.'\n" +
+          "END-IF\n" +
+          "WRITE 'Accepted:' #AGE\n" +
+          "END",
+      },
+      {
+        title: 'Validation is a loop you did not have to write',
+        body:
+          '<p>Notice there is no REPEAT here. REINPUT itself sends control back to the ' +
+          'INPUT, so the validation loop is built into the statement. That is why Natural ' +
+          'programs that read screens tend to be shorter than you would expect.</p>' +
+          '<div class="tip">A REINPUT with no INPUT above it is an error, because there ' +
+          'is nothing to go back to.</div>',
+      },
+    ],
+  },
+
+  {
+    title: '11. Subroutines',
+    lede:
+      'A subroutine is a named block of statements in the same program. PERFORM runs it ' +
+      'and execution comes back to where it left off.',
+    steps: [
+      {
+        title: 'DEFINE SUBROUTINE and PERFORM',
+        body:
+          '<p>The definition is skipped during normal flow; only PERFORM enters it.</p>',
+        code:
+          "DEFINE DATA LOCAL\n" +
+          "1 #N (N5)\n" +
+          "END-DEFINE\n" +
+          "WRITE 'starting'\n" +
+          "PERFORM SAY-HELLO\n" +
+          "WRITE 'finished'\n" +
+          "DEFINE SUBROUTINE SAY-HELLO\n" +
+          "WRITE 'hello from the subroutine'\n" +
+          "END-SUBROUTINE\n" +
+          "END",
+      },
+      {
+        title: 'An inline subroutine shares the program data',
+        body:
+          '<p>This is the key property, and the one that separates a subroutine from the ' +
+          'subprograms in module 13. The subroutine reads and writes the same fields the ' +
+          'main program declared.</p>',
+        code:
+          "DEFINE DATA LOCAL\n" +
+          "1 EMPLOYEES-VIEW VIEW OF EMPLOYEES\n" +
+          "2 NAME\n" +
+          "2 SALARY\n" +
+          "1 #TOTAL (P11)\n" +
+          "1 #COUNT (I4)\n" +
+          "1 #AVERAGE (N9.2)\n" +
+          "END-DEFINE\n" +
+          "PERFORM GATHER\n" +
+          "PERFORM REPORT\n" +
+          "DEFINE SUBROUTINE GATHER\n" +
+          "READ EMPLOYEES-VIEW\n" +
+          "ADD SALARY TO #TOTAL\n" +
+          "ADD 1 TO #COUNT\n" +
+          "END-READ\n" +
+          "END-SUBROUTINE\n" +
+          "DEFINE SUBROUTINE REPORT\n" +
+          "COMPUTE ROUNDED #AVERAGE = #TOTAL / #COUNT\n" +
+          "WRITE 'Employees:' #COUNT\n" +
+          "WRITE 'Average:  ' #AVERAGE\n" +
+          "END-SUBROUTINE\n" +
+          "END",
+      },
+      {
+        title: 'Subroutines can call subroutines',
+        body:
+          '<p>Nesting works, and each PERFORM returns to its own caller. Try to write a ' +
+          'subroutine that performs itself and the interpreter will stop you rather than ' +
+          'letting the program run out of stack.</p>',
+        code:
+          "DEFINE DATA LOCAL\n" +
+          "1 #N (N5)\n" +
+          "END-DEFINE\n" +
+          "PERFORM OUTER\n" +
+          "DEFINE SUBROUTINE OUTER\n" +
+          "WRITE 'outer starts'\n" +
+          "PERFORM INNER\n" +
+          "WRITE 'outer resumes'\n" +
+          "END-SUBROUTINE\n" +
+          "DEFINE SUBROUTINE INNER\n" +
+          "WRITE '  inner ran'\n" +
+          "END-SUBROUTINE\n" +
+          "END",
+      },
+    ],
+  },
+
+  {
+    title: '12. Data areas',
+    lede:
+      'Where a field lives decides who can see it. A parameter data area is the interface ' +
+      'between two objects.',
+    steps: [
+      {
+        title: 'LOCAL data belongs to one object',
+        body:
+          '<p>Everything you have declared so far has been ' +
+          '<code class="inl">DEFINE DATA LOCAL</code>: fields belonging to this program ' +
+          'alone. A subroutine in the same program shares them, because it is part of the ' +
+          'same object.</p>',
+      },
+      {
+        title: 'PARAMETER data is the call interface',
+        body:
+          '<p>A subprogram declares a ' +
+          '<code class="inl">DEFINE DATA PARAMETER</code> block. Those fields, in that ' +
+          'order, are what a caller passes. Nothing else crosses between them.</p>' +
+          '<p>This course ships a small library of subprograms you can call. ' +
+          '<code class="inl">DOUBLE-IT</code> takes a number and returns twice it; ' +
+          '<code class="inl">COUNT-STAFF</code> takes a country code and returns how many ' +
+          'employees are there.</p>' +
+          '<div class="tip">A subprogram cannot see the caller\'s other fields, even ones ' +
+          'with the same name. That isolation is the reason subprograms are safe to reuse.' +
+          '</div>',
+      },
+    ],
+  },
+
+  {
+    title: '13. Subprograms and CALLNAT',
+    lede:
+      'A subprogram is a separate object with its own data. CALLNAT runs it and passes ' +
+      'values through its parameter list.',
+    steps: [
+      {
+        title: 'CALLNAT passes values in and results back',
+        body:
+          '<p>DOUBLE-IT is a subprogram in this course library. Its parameter block is ' +
+          '<code class="inl">1 #IN (N5)</code> then <code class="inl">1 #OUT (N7)</code>, ' +
+          'so the call passes two arguments in that order.</p>',
+        code:
+          "DEFINE DATA LOCAL\n" +
+          "1 #VALUE (N5)\n" +
+          "1 #RESULT (N7)\n" +
+          "END-DEFINE\n" +
+          "MOVE 21 TO #VALUE\n" +
+          "CALLNAT 'DOUBLE-IT' #VALUE #RESULT\n" +
+          "WRITE 'Twice' #VALUE 'is' #RESULT\n" +
+          "END",
+      },
+      {
+        title: 'A subprogram can do real work',
+        body:
+          '<p>COUNT-STAFF reads the database on your behalf. You pass a country and get ' +
+          'back a count, without needing to know how it searched.</p>',
+        code:
+          "DEFINE DATA LOCAL\n" +
+          "1 #WHERE (A3)\n" +
+          "1 #HOWMANY (N3)\n" +
+          "END-DEFINE\n" +
+          "MOVE 'USA' TO #WHERE\n" +
+          "CALLNAT 'COUNT-STAFF' #WHERE #HOWMANY\n" +
+          "WRITE 'Staff in' #WHERE 'is' #HOWMANY\n" +
+          "CALLNAT 'COUNT-STAFF' 'UK' #HOWMANY\n" +
+          "WRITE 'Staff in UK is' #HOWMANY\n" +
+          "END",
+      },
+      {
+        title: 'Get the parameter list wrong on purpose',
+        body:
+          '<p>The call has to match the subprogram\'s parameter block. Run this to see ' +
+          'what happens when it does not.</p>',
+        code:
+          "DEFINE DATA LOCAL\n" +
+          "1 #VALUE (N5)\n" +
+          "END-DEFINE\n" +
+          "CALLNAT 'DOUBLE-IT' #VALUE\n" +
+          "END",
+      },
+    ],
+  },
+
+  {
+    title: '14. Maps: the green screen',
+    lede:
+      'A map is a screen layout. Reading one suspends the program exactly as INPUT does, ' +
+      'except what is suspended is a whole panel of fields.',
+    steps: [
+      {
+        title: 'DEFINE MAP lays out a screen',
+        body:
+          '<p><code class="inl">TEXT</code> places a label at a row and column. ' +
+          '<code class="inl">FIELD</code> places a label followed by an entry field bound ' +
+          'to one of your variables. Run this and the terminal shows the panel.</p>' +
+          '<p>Type a value for each field and press Enter to move through them.</p>',
+        code:
+          "DEFINE DATA LOCAL\n" +
+          "1 #NAME (A20)\n" +
+          "1 #DEPT (A6)\n" +
+          "END-DEFINE\n" +
+          "DEFINE MAP EMPLOYEE-ENTRY\n" +
+          "TEXT 2 25 'EMPLOYEE MAINTENANCE'\n" +
+          "TEXT 4 25 '===================='\n" +
+          "FIELD 7 10 'Name:' #NAME\n" +
+          "FIELD 9 10 'Dept:' #DEPT\n" +
+          "TEXT 22 10 'Enter to confirm'\n" +
+          "END-MAP\n" +
+          "INPUT USING MAP EMPLOYEE-ENTRY\n" +
+          "WRITE 'You entered' #NAME 'in department' #DEPT\n" +
+          "END",
+      },
+      {
+        title: 'Attribute bytes make fields behave differently',
+        body:
+          '<p>Every field on a 3270 carries an attribute byte. A label is ' +
+          '<b>protected</b>, so the operator cannot type into it. A numeric field accepts ' +
+          'digits only. <code class="inl">(AD=I)</code> intensifies a field and ' +
+          '<code class="inl">(AD=N)</code> hides what is typed into it, which is how ' +
+          'password fields have always worked.</p>',
+        code:
+          "DEFINE DATA LOCAL\n" +
+          "1 #USER (A10)\n" +
+          "1 #PIN (A4)\n" +
+          "1 #AMOUNT (N7)\n" +
+          "END-DEFINE\n" +
+          "DEFINE MAP SIGN-ON\n" +
+          "TEXT 3 28 'SECURE TRANSFER'\n" +
+          "FIELD 8 10 'User:  ' #USER (AD=I)\n" +
+          "FIELD 10 10 'PIN:   ' #PIN (AD=N)\n" +
+          "FIELD 12 10 'Amount:' #AMOUNT\n" +
+          "END-MAP\n" +
+          "INPUT USING MAP SIGN-ON\n" +
+          "WRITE 'User' #USER 'moved' #AMOUNT\n" +
+          "WRITE 'The PIN was never displayed on screen.'\n" +
+          "END",
+      },
+      {
+        title: 'PF keys tell the program what the operator wanted',
+        body:
+          '<p>The key that ends a screen is an <b>AID key</b>, and the program reads it ' +
+          'from <code class="inl">*PF-KEY</code>. Every "PF3 to exit" convention in ' +
+          'mainframe software is this one field.</p>' +
+          '<div class="tip">Press <b>Enter</b> to confirm, or the <b>PF3</b> button below ' +
+          'the screen to cancel, and watch which branch runs.</div>',
+        code:
+          "DEFINE DATA LOCAL\n" +
+          "1 #NAME (A20)\n" +
+          "END-DEFINE\n" +
+          "DEFINE MAP CONFIRM\n" +
+          "TEXT 2 25 'ADD AN EMPLOYEE'\n" +
+          "FIELD 6 10 'Name:' #NAME\n" +
+          "TEXT 22 10 'Enter to save, PF3 to cancel'\n" +
+          "END-MAP\n" +
+          "INPUT USING MAP CONFIRM\n" +
+          "IF *PF-KEY = 'PF3'\n" +
+          "WRITE 'Cancelled. Nothing was saved.'\n" +
+          "ELSE\n" +
+          "WRITE 'Would save' #NAME\n" +
+          "END-IF\n" +
+          "END",
+      },
+    ],
+  },
+
+  {
+    title: '15. Capstone: a maintenance program',
+    lede:
+      'Everything together: a map to collect a search, a subprogram to do the counting, ' +
+      'subroutines to organise the work, and a committed database change.',
+    steps: [
+      {
+        title: 'Search and report',
+        body:
+          '<p>Fill in a country code (try USA, UK, ESP, F, or CZ) and press Enter.</p>',
+        code:
+          "DEFINE DATA LOCAL\n" +
+          "1 EMPLOYEES-VIEW VIEW OF EMPLOYEES\n" +
+          "2 NAME\n" +
+          "2 CITY\n" +
+          "2 COUNTRY\n" +
+          "2 SALARY\n" +
+          "1 #WHERE (A3)\n" +
+          "1 #HOWMANY (N3)\n" +
+          "1 #TOTAL (P11)\n" +
+          "END-DEFINE\n" +
+          "DEFINE MAP SEARCH\n" +
+          "TEXT 2 25 'STAFF ENQUIRY'\n" +
+          "FIELD 6 10 'Country code:' #WHERE\n" +
+          "TEXT 22 10 'Enter to search'\n" +
+          "END-MAP\n" +
+          "INPUT USING MAP SEARCH\n" +
+          "CALLNAT 'COUNT-STAFF' #WHERE #HOWMANY\n" +
+          "IF #HOWMANY = 0\n" +
+          "WRITE 'No staff found in' #WHERE\n" +
+          "ELSE\n" +
+          "PERFORM LIST-THEM\n" +
+          "END-IF\n" +
+          "DEFINE SUBROUTINE LIST-THEM\n" +
+          "FIND EMPLOYEES-VIEW WITH COUNTRY = #WHERE SORTED BY NAME\n" +
+          "DISPLAY NAME CITY SALARY\n" +
+          "ADD SALARY TO #TOTAL\n" +
+          "END-FIND\n" +
+          "WRITE 'Headcount:' #HOWMANY\n" +
+          "WRITE 'Payroll:  ' #TOTAL\n" +
+          "END-SUBROUTINE\n" +
+          "END",
+      },
+      {
+        title: 'A validated update, committed',
+        body:
+          '<p>The full shape of a maintenance program: read a screen, validate it, change ' +
+          'the database, commit, and prove the change stuck.</p>',
+        code:
+          "DEFINE DATA LOCAL\n" +
+          "1 EMPLOYEES-VIEW VIEW OF EMPLOYEES\n" +
+          "2 NAME\n" +
+          "2 SALARY\n" +
+          "1 #WHO (A20)\n" +
+          "1 #RISE (N5)\n" +
+          "END-DEFINE\n" +
+          "DEFINE MAP RAISE-MAP\n" +
+          "TEXT 2 25 'AWARD A RAISE'\n" +
+          "FIELD 6 10 'Employee:' #WHO\n" +
+          "FIELD 8 10 'Amount:  ' #RISE\n" +
+          "TEXT 22 10 'Try GARRET and 3000'\n" +
+          "END-MAP\n" +
+          "INPUT USING MAP RAISE-MAP\n" +
+          "IF #RISE = 0\n" +
+          "REINPUT 'Enter an amount greater than zero.'\n" +
+          "END-IF\n" +
+          "FIND EMPLOYEES-VIEW WITH NAME = #WHO\n" +
+          "IF NO RECORDS FOUND\n" +
+          "WRITE 'No employee called' #WHO\n" +
+          "END-NOREC\n" +
+          "WRITE 'Before:' SALARY\n" +
+          "ADD #RISE TO SALARY\n" +
+          "UPDATE\n" +
+          "END-FIND\n" +
+          "END TRANSACTION\n" +
+          "FIND EMPLOYEES-VIEW WITH NAME = #WHO\n" +
+          "WRITE 'After: ' SALARY\n" +
+          "END-FIND\n" +
+          "END",
+      },
+    ],
+  },
 ];
+
+/**
+ * Subprograms the lessons can CALLNAT. In a real installation these live in the same
+ * library as the program; here the course supplies them so a learner can call a routine
+ * without also having to write it.
+ */
+export const LIBRARY = {
+  'DOUBLE-IT': [
+    'DEFINE DATA PARAMETER',
+    '1 #IN (N5)',
+    '1 #OUT (N7)',
+    'END-DEFINE',
+    'COMPUTE #OUT = #IN * 2',
+    'END',
+  ].join('\n'),
+
+  'COUNT-STAFF': [
+    'DEFINE DATA PARAMETER',
+    '1 #COUNTRY (A3)',
+    '1 #HOWMANY (N3)',
+    'END-DEFINE',
+    'DEFINE DATA LOCAL',
+    '1 EMPLOYEES-VIEW VIEW OF EMPLOYEES',
+    '2 COUNTRY',
+    'END-DEFINE',
+    'RESET #HOWMANY',
+    'FIND EMPLOYEES-VIEW WITH COUNTRY = #COUNTRY',
+    'ADD 1 TO #HOWMANY',
+    'END-FIND',
+    'END',
+  ].join('\n'),
+};

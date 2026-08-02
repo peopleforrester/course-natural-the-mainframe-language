@@ -3,7 +3,7 @@
 
 import { Terminal } from './vendor/xterm.js';
 import init, { NaturalSession } from './pkg/natural_wasm.js';
-import { LESSONS } from './lessons.js';
+import { LESSONS, LIBRARY } from './lessons.js';
 
 // A Model 2 screen. Fixed, with no scrollback and no fit addon, because a real 3270
 // neither scrolls nor reflows. See research/08-mainframe-emulators-3270.md.
@@ -37,6 +37,10 @@ const state = {
   awaitingInput: false,
   buffer: '',
   running: false,
+  /// The map currently displayed: its entry fields and which one is being filled.
+  screen: null,
+  screenValues: [],
+  screenIndex: 0,
 };
 
 // ---- the Operator Information Area ----
@@ -81,6 +85,9 @@ function pump() {
         // "X Protected" style convention: the machine is waiting on the operator.
         setOia('4  A', 'Input Inhibited: waiting');
         return;
+      case 'screen':
+        presentScreen(step.text);
+        return;
       case 'done':
         state.running = false;
         writeLine('');
@@ -99,7 +106,108 @@ function pump() {
   }
 }
 
+/**
+ * Draws a map and starts collecting its entry fields.
+ *
+ * The grid arrives pre-rendered from the interpreter, so the page does not need to know
+ * the 3270 field model to display a panel. The field list is fetched separately because
+ * the page does need it to know what to collect.
+ */
+function presentScreen(rendered) {
+  term.reset();
+  const rows = rendered.split('\n');
+  rows.forEach((row, i) => {
+    term.write(row.replace(/\s+$/, ''));
+    if (i < rows.length - 1) term.write('\n');
+  });
+
+  const fields = state.session
+    .screenFields()
+    .split('\n')
+    .filter(Boolean)
+    .map((row) => {
+      const [name, r, c, width, kind] = row.split('|');
+      return { name, row: Number(r), column: Number(c), width: Number(width), kind };
+    });
+
+  state.screen = fields;
+  state.screenValues = fields.map(() => '');
+  state.screenIndex = 0;
+  state.awaitingInput = false;
+  setOia('4  A', 'Input Inhibited: waiting');
+  showAidBar(true);
+  focusScreenField();
+}
+
+/** Positions the cursor on the field being filled and echoes what has been typed. */
+function focusScreenField() {
+  const field = state.screen[state.screenIndex];
+  if (!field) return;
+  // xterm rows and columns are one-based in the CUP escape, matching a map definition.
+  term.write('\u001b[' + field.row + ';' + field.column + 'H');
+  const typed = state.screenValues[state.screenIndex];
+  term.write(field.kind === 'hidden' ? '*'.repeat(typed.length) : typed);
+}
+
+/** Sends the completed screen back to the interpreter with the AID key pressed. */
+function submitScreen(aid) {
+  if (!state.screen) return;
+  const payload = state.screen
+    .map((f, i) => f.name + '=' + state.screenValues[i])
+    .join('\n');
+  state.screen = null;
+  showAidBar(false);
+  term.write('\u001b[24;1H\n');
+  setOia('4  A', 'X SYSTEM');
+  const complaint = state.session.provideScreen(payload, aid);
+  if (complaint) {
+    writeLine('*** ' + complaint);
+    setOia('4  A', 'X  Program check');
+    return;
+  }
+  pump();
+}
+
+function showAidBar(visible) {
+  document.getElementById('aidbar').style.display = visible ? 'flex' : 'none';
+}
+
 term.onData((data) => {
+  // A map is being filled in: keystrokes go to the field under the cursor.
+  if (state.screen) {
+    for (const ch of data) {
+      const field = state.screen[state.screenIndex];
+      if (!field) return;
+      if (ch === '\r' || ch === '\n') {
+        if (state.screenIndex < state.screen.length - 1) {
+          state.screenIndex += 1;
+          focusScreenField();
+        } else {
+          submitScreen('ENTR');
+        }
+        return;
+      }
+      if (ch === '\u007f') {
+        if (state.screenValues[state.screenIndex].length > 0) {
+          state.screenValues[state.screenIndex] =
+            state.screenValues[state.screenIndex].slice(0, -1);
+          term.write('\b \b');
+        }
+        continue;
+      }
+      if (ch < ' ') continue;
+      // A numeric field accepts digits only, which is what its attribute byte means.
+      if (field.kind === 'numeric' && !/[0-9.\-]/.test(ch)) {
+        setOia('4  A', 'X  Numeric field');
+        continue;
+      }
+      if (state.screenValues[state.screenIndex].length >= field.width) continue;
+      state.screenValues[state.screenIndex] += ch;
+      term.write(field.kind === 'hidden' ? '*' : ch);
+    }
+    return;
+  }
+
   if (!state.awaitingInput) return;
   for (const ch of data) {
     if (ch === '\r' || ch === '\n') {
@@ -139,6 +247,13 @@ term.onData((data) => {
 function runSource(source) {
   term.reset();
   state.session = new NaturalSession(source);
+  // The lesson library travels with every run, so any lesson may CALLNAT these.
+  for (const [name, body] of Object.entries(LIBRARY)) {
+    state.session.addObject(name, body);
+  }
+  state.screen = null;
+  state.screenValues = [];
+  state.screenIndex = 0;
   state.awaitingInput = false;
   state.buffer = '';
   state.running = true;
@@ -229,6 +344,8 @@ async function main() {
   // is also the hook a lesson checker uses to read what the learner saw.
   window.term = term;
   window.naturalRun = runSource;
+  window.naturalSubmitScreen = submitScreen;
+  window.naturalState = state;
 
   LESSONS.forEach((lesson, index) => {
     const option = document.createElement('option');
@@ -250,8 +367,17 @@ async function main() {
     state.session = null;
     state.awaitingInput = false;
     state.running = false;
+    state.screen = null;
+    showAidBar(false);
     setOia('4  A', 'Ready');
   });
+
+  // The AID keys a map can be ended with. ENTER confirms; PF3 is the near-universal
+  // mainframe convention for "go back" and every lesson that offers a choice uses it.
+  document.querySelectorAll('#aidbar button').forEach((button) => {
+    button.addEventListener('click', () => submitScreen(button.dataset.aid));
+  });
+  showAidBar(false);
   document.getElementById('palette').addEventListener('change', (event) => {
     const name = event.target.value;
     document.body.classList.toggle('amber', name === 'amber');
