@@ -56,7 +56,7 @@ pub struct ScreenField {
 /// A screen waiting to be filled in.
 ///
 /// This is what a map read suspends on, exactly as a line-mode INPUT suspends on a prompt.
-/// Modelling it as data rather than as terminal escape codes keeps the browser free to
+/// Modeling it as data rather than as terminal escape codes keeps the browser free to
 /// render it however it likes, and keeps a lesson checker able to inspect it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Screen {

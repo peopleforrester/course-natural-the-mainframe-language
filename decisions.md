@@ -455,7 +455,7 @@ run, so the page re-prompts and the lesson continues.
 
 The front end is a split pane: lessons left, a fixed 24x80 Model 2 grid right, with
 `scrollback: 0` and no fit addon because a real 3270 neither scrolls nor reflows. The
-rbanffy 3270 webfont is vendored with its licence, green and amber phosphor are both
+rbanffy 3270 webfont is vendored with its license, green and amber phosphor are both
 available, and an Operator Information Area strip below the grid turns interpreter state
 into a visible signal (`X SYSTEM` while running, `X Program check` on failure). Every
 lesson code block runs on click.
@@ -606,3 +606,39 @@ or amber, and on this one page the subject outranks the palette.
 Verified: gate green; 42 of 42 lesson code blocks execute; all 6 exercises accept a
 known-good solution and the first also rejects a wrong one with a specific reason; the full
 UI loop drives starter load, edit, check, checkmark, meter, and persistence.
+
+## 2026-08-02T00:00:00Z · 2.3 · Site audit: spelling, facts, runtime, accessibility
+
+Full QA pass over the course website. Findings and fixes:
+
+**Spelling.** Ran the lesson prose (2,156 words) against the system dictionary. No
+misspellings; every flag was a legitimate identifier or compound. But the repo mixed
+British and American variants, with American dominant. Normalized the outliers:
+"organise", "behaviour", "modelling", "recognisably", and five instances of "licence".
+The vendored font license text was left untouched, because it is a legal document.
+
+**Facts.** Audited the lesson prose against the verification pass. Clean: 1975 is present
+as the documented development start, the unsourced 1979 release date is absent, z/VSE and
+BS2000 appear only as retired platforms, Software GmbH and the January 2025 standalone
+date are correct, there is no 2050 support guarantee, the withdrawn Futurum statistic is
+absent, the refuted University of Texas teaching claim is absent, and the course makes no
+job-readiness or certification-prep claim.
+
+**Runtime.** No console errors, warnings, uncaught exceptions, or unhandled rejections.
+Every stylesheet and script resolves. The 3270 webfont genuinely loads rather than
+silently falling back, which was worth checking because a fallback would look almost
+right. No horizontal overflow.
+
+**Accessibility.** Language attribute set, one h1, every button has a text label, the
+select is labelled, the editor textarea carries an aria-label, and all seven primary
+controls are keyboard reachable.
+
+**One real bug, fixed.** Lesson 12 was the only lesson with no runnable content, so
+switching to it left the previous lesson's code sitting in the editor as though it
+belonged there. Fixed twice over: the lesson gained a demo that proves the isolation it
+describes (a caller and a subprogram each holding their own #IN, and the caller's coming
+back untouched), and renderLesson now clears the editor when a lesson has nothing to run.
+Every lesson now has something to execute.
+
+Re-verified after the fixes: 43 of 43 lesson code blocks execute, all 6 exercises still
+accept a known-good solution, and lesson 12 loads its own code.

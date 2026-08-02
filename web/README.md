@@ -17,16 +17,16 @@ Any static host works. The page needs no COOP or COEP headers, because the inter
 suspends and resumes rather than blocking, which is the reason it was built as a state
 machine. See `docs/gotchas-rust-wasm.md`.
 
-## What is vendored, and under what licence
+## What is vendored, and under what license
 
-| Path | What | Licence |
+| Path | What | License |
 |------|------|---------|
 | `vendor/xterm.js`, `vendor/xterm.css` | `@xterm/xterm` 6.0.0, the scoped package | MIT |
 | `fonts/3270-Regular.woff` | `rbanffy/3270font` v3.0.1 | BSD-3-Clause and OFL-1.1-RFN |
 | `pkg/` | Build output from `crates/natural-wasm` | this project |
 
 The 3270 font descends from the x3270 font, which was hand-copied from a physical IBM
-3270. Its licence text is in `fonts/LICENSE-3270font.txt`.
+3270. Its license text is in `fonts/LICENSE-3270font.txt`.
 
 ## Layout notes
 

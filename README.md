@@ -70,13 +70,13 @@ map read suspends on a `Screen`. An `INPUT` two frames deep inside nested subrou
 inside a called subprogram, still resumes correctly. None of that would work if any of them
 had used Rust recursion.
 
-**The interpreter is ours.** A free vendor Community Edition exists, but its licence bars
+**The interpreter is ours.** A free vendor Community Edition exists, but its license bars
 using it as a paid course's backend, and there is no academic path. Owning the runtime
 removes the licensing wall and drives marginal delivery cost to zero.
 
 ## Accuracy
 
-Every language behaviour the course teaches is verified against official Software AG
+Every language behavior the course teaches is verified against official Software AG
 documentation, and the research behind it was adversarially re-checked. The verification
 pass in `research/verification/` corrected real errors, including three retired platforms
 that would have been taught as current and a misquoted workforce statistic whose source
