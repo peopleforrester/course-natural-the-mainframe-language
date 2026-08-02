@@ -1,6 +1,6 @@
 # Project State: course-natural-the-mainframe-language
 
-Phase: 2.2 Implement (Tier 1 interpreter COMPLETE; wasm build and VTT front end next)
+Phase: 3.3 Promote (Tier 1 shipped: interpreter, wasm, VTT, and all nine lessons)
 Approved: 2026-07-22T18:45:25Z by Michael (sha256:135613afc4c9)
 
 ## Lifecycle
@@ -51,7 +51,7 @@ spec section 8 (v1 scope depth, confirm Rust, product intent, public-repo timing
 ## Branch & Tests
 - Branch: staging
 - Working tree: clean after the M-A commit
-- Tests: 218 passing (`cargo test --workspace`), clippy clean under `-D warnings`,
+- Tests: 223 passing (`cargo test --workspace`), clippy clean under `-D warnings`,
   `cargo fmt --check` clean
 - Toolchain: rustc 1.97.1 via the pinned `rust-toolchain.toml`, which independently
   confirmed the version claim in spike 06

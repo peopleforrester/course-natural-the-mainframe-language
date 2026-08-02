@@ -441,3 +441,40 @@ Verified with a capstone program that exercises every module in one run: a HISTO
 summary by country, a READ loop accumulating payroll and grading each employee with
 DECIDE FOR, a DISPLAY report, a ROUNDED raise budget, then a FIND with WHERE that updates
 the lowest-paid UK employee, commits, and re-reads to prove the change persisted.
+
+## 2026-08-02T00:00:00Z · 2.3 · Tier 1 shipped end to end, verified in a real browser
+
+The wasm bindings and the VTT front end are built, and the client-side architecture is
+proven in the delivery vehicle rather than only in tests.
+
+`natural-wasm` exposes the interpreter as a `NaturalSession` the page drives one step at a
+time. Values cross the boundary as strings, because the Natural edit mask is this
+project's formatting authority and letting JavaScript render a decimal would put the wrong
+formatter in charge. A rejected INPUT value returns its diagnostic instead of ending the
+run, so the page re-prompts and the lesson continues.
+
+The front end is a split pane: lessons left, a fixed 24x80 Model 2 grid right, with
+`scrollback: 0` and no fit addon because a real 3270 neither scrolls nor reflows. The
+rbanffy 3270 webfont is vendored with its licence, green and amber phosphor are both
+available, and an Operator Information Area strip below the grid turns interpreter state
+into a visible signal (`X SYSTEM` while running, `X Program check` on failure). Every
+lesson code block runs on click.
+
+One new toolchain trap, now recorded in the gotchas doc: wasm-pack's bundled `wasm-opt` is
+older than the wasm current rustc emits, so a release build fails validation with "Bulk
+memory operations require bulk memory". The error suggests disabling wasm-opt, which works
+but ships a larger module. The right fix is to enable the features in
+`[package.metadata.wasm-pack.profile.release]`.
+
+Verification performed, three passes:
+
+1. Local gate green; 223 tests pass.
+2. Clean rebuild from an empty target directory: 223 tests, zero failures, release build
+   and wasm build both clean. The wasm module is 178 KB.
+3. In a headless browser against the freshly built artifact: all 30 lesson code blocks
+   execute, the two deliberate teaching failures fail correctly and none is silently
+   empty; INPUT suspends, accepts a value, rejects a bad one with a teaching error and
+   re-prompts, then resumes; the runaway cap stops a million-statement loop in 382 ms with
+   the page still responsive; and three invariants survive the wasm boundary intact,
+   namely uncommitted work being discarded, 0.1 + 0.2 storing exactly 0.30, and N7.2
+   printing in eleven positions with its reserved sign position.
