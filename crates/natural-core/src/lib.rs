@@ -10,7 +10,7 @@ mod value;
 
 pub use data::{Database, Ddm, DdmField, Record};
 pub use error::NaturalError;
-pub use interp::{Field, InputRequest, Interpreter, Step};
+pub use interp::{Field, InputRequest, Interpreter, Library, Step};
 pub use parser::{Program, parse as parse_program};
 pub use value::{Format, Value, print_width, render_field};
 
@@ -67,8 +67,17 @@ pub fn run(source: &str) -> Result<Outcome, NaturalError> {
 
 /// Runs a program to completion, answering each INPUT from `inputs` in order.
 pub fn run_with_input(source: &str, inputs: &[&str]) -> Result<Outcome, NaturalError> {
+    run_in_library(source, &Library::new(), inputs)
+}
+
+/// Runs a program that may CALLNAT the subprograms in `library`.
+pub fn run_in_library(
+    source: &str,
+    library: &Library,
+    inputs: &[&str],
+) -> Result<Outcome, NaturalError> {
     let program = parser::parse(source)?;
-    let mut interp = Interpreter::new(program);
+    let mut interp = Interpreter::new(program).with_library(library.clone());
     let mut lines = Vec::new();
     let mut prompts = Vec::new();
     let mut supplied = 0;
