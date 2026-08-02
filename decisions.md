@@ -505,3 +505,39 @@ subroutines and subprograms need a call stack, and it must be an explicit stack 
 the interpreter rather than the Rust call stack, because a suspension can occur inside a
 called routine. The same applies to the screen buffer for maps. Both were designed for
 from the start.
+
+## 2026-08-02T00:00:00Z · 2.2 · Tier 2 core: subroutines, subprograms, REINPUT, and maps
+
+Added inline subroutines, CALLNAT subprograms with parameter data areas, REINPUT
+validation, and the 3270 map model. Seventy tests across three files, taking the suite to
+270.
+
+This is the milestone the Tier 1 architecture constraint was for. Three kinds of call now
+exist and none of them recurses on the Rust call stack:
+
+- PERFORM pushes a return address onto an explicit `call_stack`.
+- CALLNAT swaps the whole executing object, keeping the caller in a `frames` stack, and
+  restores it when the callee runs off its end. A subprogram gets its own fields, views,
+  and loop cursors, and communicates only through its parameter list, which is precisely
+  the distinction module 13 teaches against inline subroutines.
+- A map read suspends on a `Screen` exactly as a line-mode INPUT suspends on a prompt.
+
+Tests pin the property that matters: an INPUT two frames deep inside nested subroutines
+resumes correctly, and so does one inside a called subprogram. Neither would work if any
+of these had been implemented with Rust recursion.
+
+The screen is modelled at the field level, as spike 08 recommended: positioned fields
+carrying an attribute (protected, unprotected, numeric, intensified, hidden), a modified
+data tag, AID keys through `*PF-KEY`, and a renderer that lays fields onto a fixed 24x80
+grid. The 3270 data stream is deliberately absent, because it is weeks of work invisible
+from the language.
+
+Two process notes worth keeping:
+
+- A `cargo test` output grep I was using to check results was too narrow and did not match
+  `error[E0432]`, so a test file that FAILED TO COMPILE looked like a pass. The maps suite
+  was silently not running. `scripts/verify.sh` caught it immediately because it checks
+  the exit status rather than scraping output. Trust the gate, not a grep.
+- Unclosed blocks needed the same treatment maps as DEFINE DATA and DEFINE SUBROUTINE
+  already had: reaching END while still inside the layout reports the unclosed block
+  rather than complaining that END is not a valid element.

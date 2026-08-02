@@ -3,6 +3,7 @@
 
 use crate::error::NaturalError;
 use crate::lexer::{self, Token};
+use crate::screen::Attribute;
 use crate::value::{Format, Value};
 
 /// A value a statement operates on, resolved at run time.
@@ -169,6 +170,37 @@ pub enum Statement {
     },
     /// Return to whatever performed this subroutine.
     ReturnFromSubroutine,
+    /// Present a map and wait for the operator to fill it in.
+    InputUsingMap {
+        map: String,
+        line: usize,
+    },
+    /// Send the operator back to the screen they just completed, with a message.
+    Reinput {
+        message: Option<String>,
+        line: usize,
+    },
+}
+
+/// One element of a map definition, before it becomes a positioned screen field.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MapElement {
+    pub row: usize,
+    pub column: usize,
+    /// The literal label shown before the entry field, if any.
+    pub label: Option<String>,
+    /// The program field this element reads into. Absent for a TEXT element.
+    pub bound_to: Option<String>,
+    /// An explicit attribute from an (AD=..) clause, if given.
+    pub attribute: Option<Attribute>,
+    pub line: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MapDefinition {
+    pub name: String,
+    pub elements: Vec<MapElement>,
+    pub line: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -256,9 +288,15 @@ struct PendingEscape {
 /// A block whose jump target is not known until its closing keyword is reached.
 enum OpenBlock {
     /// An IF with no ELSE yet. Holds the index of its IfFalseJump.
-    If { false_jump: usize, line: usize },
+    If {
+        false_jump: usize,
+        line: usize,
+    },
     /// An IF whose ELSE has been seen. Holds the index of the Jump that skips the ELSE.
-    Else { end_jump: usize, line: usize },
+    Else {
+        end_jump: usize,
+        line: usize,
+    },
     For {
         init: usize,
         var: String,
@@ -284,6 +322,9 @@ enum OpenBlock {
     Subroutine {
         /// The jump that carries normal flow past the definition.
         skip: usize,
+        line: usize,
+    },
+    Map {
         line: usize,
     },
     Histogram {
@@ -334,6 +375,7 @@ impl OpenBlock {
             | OpenBlock::Find { line, .. }
             | OpenBlock::Histogram { line, .. }
             | OpenBlock::Subroutine { line, .. }
+            | OpenBlock::Map { line, .. }
             | OpenBlock::Decide { line, .. } => *line,
         }
     }
@@ -377,6 +419,8 @@ pub struct Program {
     pub parameters: Vec<Declaration>,
     pub views: Vec<ViewDeclaration>,
     pub statements: Vec<Statement>,
+    /// Screen layouts declared with DEFINE MAP.
+    pub maps: Vec<MapDefinition>,
     /// Where each inline subroutine's body begins. Names resolve at run time, so a
     /// subroutine may be performed before the line that defines it.
     pub subroutines: std::collections::BTreeMap<String, usize>,
@@ -460,6 +504,11 @@ pub fn parse(source: &str) -> Result<Program, NaturalError> {
                 closer: "END-SUBROUTINE".to_string(),
                 line,
             },
+            OpenBlock::Map { .. } => NaturalError::MissingLoopEnd {
+                keyword: "DEFINE MAP".to_string(),
+                closer: "END-MAP".to_string(),
+                line,
+            },
             OpenBlock::Decide { .. } => NaturalError::MissingLoopEnd {
                 keyword: "DECIDE".to_string(),
                 closer: "END-DECIDE".to_string(),
@@ -512,6 +561,46 @@ fn parse_line(
             return Err(NaturalError::MissingEndDefine);
         }
         parse_declaration(tokens, line, program, *mode == Mode::ParameterBlock)?;
+        return Ok(false);
+    }
+
+    // A map definition is a layout, not executable statements, so its body is collected
+    // rather than compiled.
+    if head == "DEFINE" && is_map_definition(tokens) {
+        *mode = Mode::Body;
+        let name = match tokens.get(2) {
+            Some(Token::Word { text, .. }) => normalize(text),
+            _ => {
+                return Err(NaturalError::UnknownStatement {
+                    name: "DEFINE MAP without a name".to_string(),
+                    line,
+                });
+            }
+        };
+        program.maps.push(MapDefinition {
+            name,
+            elements: Vec::new(),
+            line,
+        });
+        blocks.push(OpenBlock::Map { line });
+        return Ok(false);
+    }
+
+    if let Some(OpenBlock::Map { line: open_line }) = blocks.last() {
+        if head == "END-MAP" {
+            blocks.pop();
+            return Ok(false);
+        }
+        // Reaching the program terminator while still inside the layout means END-MAP was
+        // forgotten. Say that, rather than complaining that END is not a map element.
+        if head == "END" {
+            return Err(NaturalError::MissingLoopEnd {
+                keyword: "DEFINE MAP".to_string(),
+                closer: "END-MAP".to_string(),
+                line: *open_line,
+            });
+        }
+        parse_map_element(&head, tokens, line, program)?;
         return Ok(false);
     }
 
@@ -591,6 +680,20 @@ fn parse_line(
         }
         "RESET" => {
             program.statements.push(parse_reset(tokens, line)?);
+            Ok(false)
+        }
+        "INPUT" if is_map_input(tokens) => {
+            let words: Vec<String> = tokens.iter().filter_map(word_text).collect();
+            let map = words
+                .get(3)
+                .cloned()
+                .ok_or_else(|| NaturalError::UnknownStatement {
+                    name: "INPUT USING MAP without a map name".to_string(),
+                    line,
+                })?;
+            program
+                .statements
+                .push(Statement::InputUsingMap { map, line });
             Ok(false)
         }
         "INPUT" => {
@@ -808,6 +911,16 @@ fn parse_line(
                 None => patch_target(program, guard, after),
             }
             patch_escapes(program, escapes, after, next);
+            Ok(false)
+        }
+        "REINPUT" => {
+            let message = tokens.iter().find_map(|t| match t {
+                Token::Text { value, .. } => Some(value.clone()),
+                _ => None,
+            });
+            program
+                .statements
+                .push(Statement::Reinput { message, line });
             Ok(false)
         }
         "CALLNAT" => {
@@ -1413,6 +1526,102 @@ fn parse_repeat_guard(
         }
     };
     Ok(Some((parse_condition(&tokens[1..], line)?, exit_when_true)))
+}
+
+/// True for `DEFINE MAP`.
+fn is_map_definition(tokens: &[Token]) -> bool {
+    matches!(tokens.get(1), Some(Token::Word { text, .. })
+        if text.eq_ignore_ascii_case("MAP"))
+}
+
+/// True for `INPUT USING MAP <name>`.
+fn is_map_input(tokens: &[Token]) -> bool {
+    matches!(tokens.get(1), Some(Token::Word { text, .. })
+        if text.eq_ignore_ascii_case("USING"))
+}
+
+/// Parses one line of a map body: `TEXT row col 'label'` or
+/// `FIELD row col 'label' #VAR [(AD=x)]`.
+fn parse_map_element(
+    head: &str,
+    tokens: &[Token],
+    line: usize,
+    program: &mut Program,
+) -> Result<(), NaturalError> {
+    let malformed = || NaturalError::UnknownStatement {
+        name: "a map element. Write TEXT 2 5 'Title' or FIELD 5 5 'Name:' #NAME".to_string(),
+        line,
+    };
+    if !matches!(head, "TEXT" | "FIELD") {
+        return Err(malformed());
+    }
+
+    let words: Vec<Option<String>> = tokens.iter().map(keyword_at).collect();
+    let number = |i: usize| {
+        words
+            .get(i)
+            .and_then(|w| w.as_deref())
+            .and_then(|w| w.parse::<usize>().ok())
+    };
+    let row = number(1).ok_or_else(malformed)?;
+    let column = number(2).ok_or_else(malformed)?;
+
+    let label = tokens.iter().find_map(|t| match t {
+        Token::Text { value, .. } => Some(value.clone()),
+        _ => None,
+    });
+
+    // The bound variable is the first word after the position that is not a number and
+    // not part of an attribute clause.
+    let mut bound_to = None;
+    let mut attribute = None;
+    let mut index = 3;
+    while index < tokens.len() {
+        if let Token::Word { text, .. } = &tokens[index] {
+            if text == "(" {
+                // (AD=I), (AD=N), and so on.
+                if let Some(Token::Word { text: spec, .. }) = tokens.get(index + 1) {
+                    attribute = attribute_from(spec);
+                }
+                index += 1;
+                continue;
+            }
+            if text != ")" && bound_to.is_none() && text.parse::<usize>().is_err() {
+                bound_to = Some(normalize(text));
+            }
+        }
+        index += 1;
+    }
+
+    if head == "TEXT" {
+        bound_to = None;
+    }
+
+    let Some(map) = program.maps.last_mut() else {
+        return Err(malformed());
+    };
+    map.elements.push(MapElement {
+        row,
+        column,
+        label,
+        bound_to,
+        attribute,
+        line,
+    });
+    Ok(())
+}
+
+/// Reads an `AD=` attribute clause. `I` is intensified and `N` is non-display, following
+/// the session parameter of the same name.
+fn attribute_from(spec: &str) -> Option<Attribute> {
+    let value = spec.to_ascii_uppercase();
+    let value = value.strip_prefix("AD=").unwrap_or(&value);
+    match value {
+        "I" => Some(Attribute::Intensified),
+        "N" => Some(Attribute::Hidden),
+        "P" => Some(Attribute::Protected),
+        _ => None,
+    }
 }
 
 /// True for `DEFINE SUBROUTINE`, which is a statement rather than a data block opener.

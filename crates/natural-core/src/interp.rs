@@ -4,6 +4,7 @@
 use crate::data::Database;
 use crate::error::NaturalError;
 use crate::parser::{ArithOp, CompareOp, Condition, Expr, Operand, Program, Statement, WriteItem};
+use crate::screen::{Attribute, Screen, ScreenField};
 use crate::value::{Format, Value, coerce, print_width, render_field};
 use rust_decimal::{Decimal, RoundingStrategy};
 use std::collections::{BTreeMap, VecDeque};
@@ -34,6 +35,12 @@ pub enum Step {
     Output(String),
     /// The program is suspended. Supply a value with [`Interpreter::provide_input`].
     NeedsInput(InputRequest),
+    /// The program is showing a map. Supply the filled-in fields and the key the operator
+    /// pressed with [`Interpreter::provide_screen`].
+    ///
+    /// A map read is a suspension of exactly the same kind as a line-mode INPUT; what
+    /// differs is that the thing suspended is a screen rather than a prompt.
+    NeedsScreen(Screen),
     Done,
 }
 
@@ -95,6 +102,11 @@ pub struct Interpreter {
     /// Return addresses for PERFORM. This lives here rather than on the Rust call stack
     /// precisely so a suspension can happen several frames deep and still resume.
     call_stack: Vec<usize>,
+    /// A map presented and not yet filled in.
+    pending_screen: Option<PendingScreen>,
+    /// The statement index of the INPUT or map read currently being validated, so REINPUT
+    /// knows where to send the operator back to.
+    last_input_at: Option<usize>,
     /// Callers waiting for the object currently executing.
     frames: Vec<SavedFrame>,
     /// The subprogram objects CALLNAT can reach.
@@ -165,6 +177,14 @@ struct SavedFrame {
     returns: Vec<(String, String)>,
 }
 
+/// A map presented to the operator and awaiting a response.
+#[derive(Debug, Clone)]
+struct PendingScreen {
+    screen: Screen,
+    /// Where to resume once the screen comes back.
+    resume_at: usize,
+}
+
 /// A HISTOGRAM's distinct descriptor values, each with how many records carry it.
 #[derive(Debug, Clone)]
 struct HistogramCursor {
@@ -184,6 +204,15 @@ impl Interpreter {
                 },
             );
         }
+        // The AID key the operator last pressed. Every "PF3 to exit" convention in
+        // mainframe software reads this.
+        fields.insert(
+            "*PF-KEY".to_string(),
+            Field {
+                format: Format::Alpha { length: 4 },
+                value: Value::Alpha("ENTR".to_string()),
+            },
+        );
         for name in ["*NUMBER", "*COUNTER"] {
             // System variables are ordinary numeric fields as far as everything else is
             // concerned, so WRITE, DISPLAY, and IF need no special case for them.
@@ -206,6 +235,8 @@ impl Interpreter {
             current_record: None,
             histograms: BTreeMap::new(),
             call_stack: Vec::new(),
+            pending_screen: None,
+            last_input_at: None,
             frames: Vec::new(),
             library: Library::new(),
             views: BTreeMap::new(),
@@ -308,6 +339,12 @@ impl Interpreter {
             // happens, so a multi-line statement cannot interleave with a suspension.
             if let Some(line) = self.pending_output.pop_front() {
                 return Ok(Step::Output(line));
+            }
+
+            // A map that has not come back yet is re-presented rather than skipped, for
+            // the same reason a partially satisfied INPUT is.
+            if let Some(pending) = &self.pending_screen {
+                return Ok(Step::NeedsScreen(pending.screen.clone()));
             }
 
             // A partially satisfied INPUT is resumed before the program counter moves, so
@@ -717,7 +754,30 @@ impl Interpreter {
                     }
                 }
 
+                Statement::InputUsingMap { map, line } => {
+                    let screen = self.build_screen(&map, line)?;
+                    // Resuming at the map read itself would re-present the screen; the
+                    // resume point is the statement after it.
+                    self.last_input_at = Some(self.pc - 1);
+                    self.pending_screen = Some(PendingScreen {
+                        screen,
+                        resume_at: self.pc,
+                    });
+                }
+
+                Statement::Reinput { message, line } => {
+                    let Some(back) = self.last_input_at else {
+                        return Err(NaturalError::ReinputWithoutInput { line });
+                    };
+                    if let Some(text) = message {
+                        self.pending_output.push_back(text);
+                    }
+                    // Go back to the read itself, which presents the screen or prompt again.
+                    self.pc = back;
+                }
+
                 Statement::Input { prompt, targets } => {
+                    self.last_input_at = Some(self.pc - 1);
                     // Fail fast on an undeclared field rather than suspending and only
                     // discovering the problem after the learner has typed something.
                     for (name, line) in &targets {
@@ -763,6 +823,103 @@ impl Interpreter {
         let right = self.resolve(&condition.right)?;
 
         compare(&left, &right, condition.op, line)
+    }
+
+    /// Builds the screen a map defines, filling entry fields with what they already hold.
+    fn build_screen(&self, name: &str, line: usize) -> Result<Screen, NaturalError> {
+        let Some(definition) = self.program.maps.iter().find(|m| m.name == name) else {
+            return Err(NaturalError::UnknownMap {
+                name: name.to_string(),
+                line,
+            });
+        };
+
+        let mut screen = Screen::blank(name);
+        for element in &definition.elements {
+            let mut column = element.column;
+
+            // A label is protected text; the operator cannot type into it.
+            if let Some(label) = &element.label {
+                screen.fields.push(ScreenField {
+                    row: element.row,
+                    column,
+                    width: label.chars().count(),
+                    text: label.clone(),
+                    attribute: Attribute::Protected,
+                    bound_to: None,
+                    modified: false,
+                });
+                // One blank separates a label from the field it introduces.
+                column += label.chars().count() + 1;
+            }
+
+            let Some(bound) = &element.bound_to else {
+                continue;
+            };
+            let Some(field) = self.fields.get(bound) else {
+                return Err(NaturalError::UndeclaredVariable {
+                    name: bound.clone(),
+                    line: element.line,
+                });
+            };
+
+            // Without an explicit AD= clause the attribute follows the field's format, so
+            // a numeric field becomes a numeric-only entry field.
+            let attribute = element.attribute.unwrap_or(match field.format {
+                Format::Numeric { .. } | Format::Packed { .. } | Format::Integer { .. } => {
+                    Attribute::Numeric
+                }
+                _ => Attribute::Unprotected,
+            });
+
+            screen.fields.push(ScreenField {
+                row: element.row,
+                column,
+                width: print_width(&field.format),
+                text: render_field(&field.value, &field.format)
+                    .trim_end()
+                    .to_string(),
+                attribute,
+                bound_to: Some(bound.clone()),
+                modified: false,
+            });
+        }
+        Ok(screen)
+    }
+
+    /// Supplies a completed screen and the AID key that ended it.
+    ///
+    /// Only fields the operator changed need be given, which mirrors Read Modified: a real
+    /// 3270 returns the fields whose modified data tag is set, not the whole screen.
+    pub fn provide_screen(
+        &mut self,
+        values: &[(String, String)],
+        aid: &str,
+    ) -> Result<(), NaturalError> {
+        let Some(pending) = self.pending_screen.take() else {
+            return Err(NaturalError::NotWaitingForInput);
+        };
+
+        for (name, text) in values {
+            let name = crate::parser::normalize(name);
+            let Some(format) = self.fields.get(&name).map(|f| f.format.clone()) else {
+                continue;
+            };
+            let value = parse_input_value(text, &format, &name, 0)?;
+            let coerced = coerce(value, &format, &name, 0)?;
+            self.assign(&name, coerced, 0)?;
+        }
+
+        if let Some(field) = self.fields.get_mut("*PF-KEY") {
+            field.value = Value::Alpha(aid.to_ascii_uppercase());
+        }
+        self.pc = pending.resume_at;
+        Ok(())
+    }
+
+    /// The screen currently being shown, if the program is waiting on one.
+    pub fn current_screen(&self) -> Option<&Screen> {
+        self.pending_screen.as_ref().map(|p| &p.screen)
     }
 
     /// Compiles a subprogram, binds its parameters, and makes it the executing object.
