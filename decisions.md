@@ -478,3 +478,30 @@ Verification performed, three passes:
    the page still responsive; and three invariants survive the wasm boundary intact,
    namely uncommitted work being discarded, 0.1 + 0.2 storing exactly 0.30, and N7.2
    printing in eleven positions with its reserved sign position.
+
+## 2026-08-02T00:00:00Z · 1.3 · Contract amended: Tier 2 is now in scope
+
+Michael directed that Tier 2 be built. The sealed contract (sha256:135613afc4c9) scoped v1
+to Tier 1 only, with Tier 2 as a later release, so this is an amendment to a binding term
+and his direction is the re-approval.
+
+What changes: v1 now covers modules 10 through 15. The positioning constraint attached to
+the original approval is satisfied rather than dropped, because Tier 2 is precisely the
+modularization and data-area content that spike 02 identified as the difference between
+"can write a program" and job-ready maintenance capability. Once it ships, the prohibition
+on claiming job-readiness can be lifted.
+
+Scope, following the curriculum validation's amended ordering:
+
+- Module 10: interactive input and REINPUT validation
+- Module 11: modularization I, inline subroutines
+- Module 12: data areas, LDA, GDA, and PDA
+- Module 13: modularization II, external subroutines and CALLNAT subprograms
+- Module 14: maps, implemented at the 3270 field-model level per spike 08
+- Module 15: a multi-object capstone
+
+The architectural consequence, and the reason the Tier 1 constraint was worth honoring:
+subroutines and subprograms need a call stack, and it must be an explicit stack held in
+the interpreter rather than the Rust call stack, because a suspension can occur inside a
+called routine. The same applies to the screen buffer for maps. Both were designed for
+from the start.
