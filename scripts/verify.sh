@@ -48,12 +48,32 @@ run 'test' cargo test --workspace
 step 'Wasm target build (wasm32-unknown-unknown)'
 run 'wasm' cargo build -p natural-core --target wasm32-unknown-unknown
 
-step 'Prose style (no em-dashes in tracked markdown)'
-if git ls-files '*.md' -z | xargs -0 grep -l '—' 2>/dev/null; then
-    printf '      FAILED: em-dashes found in the files above\n'
+step 'Prose style (learner-facing and authored text)'
+# Covers markdown AND the lesson content, which is the prose a learner actually reads.
+# Two kinds of file are excluded because their punctuation is not ours to change:
+# vendored third-party code, and the verbatim copies under reference/ that were taken
+# from other repos and must stay faithful to their originals.
+prose_files() {
+    git ls-files -z '*.md' '*.js' '*.html' '*.css' \
+        ':!:web/vendor/*' ':!:web/pkg/*' ':!:web/fonts/*' ':!:reference/*'
+}
+
+prose_hits=$(prose_files | xargs -0 grep -ln '—\|–' 2>/dev/null || true)
+if [[ -n "${prose_hits}" ]]; then
+    printf '      FAILED: em-dash or en-dash found in:\n'
+    printf '        %s\n' ${prose_hits}
     failed+=('prose')
 else
-    printf '      ok\n'
+    # Curly quotes and ellipsis characters are the other common paste artifacts, and they
+    # break the fixed-width terminal font when they land in lesson text.
+    smart_hits=$(prose_files | xargs -0 grep -ln '[‘’“”…]' 2>/dev/null || true)
+    if [[ -n "${smart_hits}" ]]; then
+        printf '      FAILED: smart quotes or ellipsis found in:\n'
+        printf '        %s\n' ${smart_hits}
+        failed+=('prose')
+    else
+        printf '      ok\n'
+    fi
 fi
 
 printf '\n────────────────────────────────────\n'
