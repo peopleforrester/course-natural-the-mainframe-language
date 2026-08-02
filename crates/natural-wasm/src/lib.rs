@@ -88,6 +88,12 @@ impl NaturalSession {
         match interpreter.step() {
             Ok(Step::Output(line)) => StepResult::of("output", line, String::new()),
             Ok(Step::NeedsInput(request)) => StepResult::of("input", request.prompt, request.field),
+            Ok(Step::NeedsScreen(screen)) => {
+                // The rendered grid crosses as text, one row per line, so the page draws
+                // the panel without needing to know the field model. The field list is
+                // available separately for a page that wants real entry positions.
+                StepResult::of("screen", screen.render().join("\n"), screen.name)
+            }
             Ok(Step::Done) => StepResult::of("done", String::new(), String::new()),
             Err(error) => {
                 // A Natural-level error ends the run, exactly as it would on a mainframe.
@@ -107,6 +113,52 @@ impl NaturalSession {
             return "The program is not running.".to_string();
         };
         match interpreter.provide_input(text) {
+            Ok(()) => String::new(),
+            Err(error) => error.to_string(),
+        }
+    }
+
+    /// The entry fields of the screen currently shown, as `name|row|column|width|kind`
+    /// rows. A page uses these to place its input carets on the grid.
+    #[wasm_bindgen(js_name = screenFields)]
+    pub fn screen_fields(&self) -> String {
+        let Some(screen) = self.interpreter.as_ref().and_then(|i| i.current_screen()) else {
+            return String::new();
+        };
+        screen
+            .input_fields()
+            .filter_map(|f| {
+                let name = f.bound_to.as_ref()?;
+                let kind = match f.attribute {
+                    natural_core::Attribute::Numeric => "numeric",
+                    natural_core::Attribute::Hidden => "hidden",
+                    natural_core::Attribute::Intensified => "intensified",
+                    _ => "text",
+                };
+                Some(format!(
+                    "{}|{}|{}|{}|{}",
+                    name, f.row, f.column, f.width, kind
+                ))
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    /// Supplies a completed screen. `values` is `name=value` rows; `aid` is the key the
+    /// operator pressed, such as ENTR or PF3.
+    #[wasm_bindgen(js_name = provideScreen)]
+    pub fn provide_screen(&mut self, values: &str, aid: &str) -> String {
+        let Some(interpreter) = self.interpreter.as_mut() else {
+            return "The program is not running.".to_string();
+        };
+        let pairs: Vec<(String, String)> = values
+            .lines()
+            .filter_map(|line| {
+                let (name, value) = line.split_once('=')?;
+                Some((name.to_string(), value.to_string()))
+            })
+            .collect();
+        match interpreter.provide_screen(&pairs, aid) {
             Ok(()) => String::new(),
             Err(error) => error.to_string(),
         }

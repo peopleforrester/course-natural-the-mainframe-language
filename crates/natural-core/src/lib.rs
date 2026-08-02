@@ -6,12 +6,14 @@ mod error;
 mod interp;
 mod lexer;
 mod parser;
+mod screen;
 mod value;
 
 pub use data::{Database, Ddm, DdmField, Record};
 pub use error::NaturalError;
 pub use interp::{Field, InputRequest, Interpreter, Library, Step};
 pub use parser::{Program, parse as parse_program};
+pub use screen::{Attribute, SCREEN_COLUMNS, SCREEN_ROWS, Screen, ScreenField};
 pub use value::{Format, Value, print_width, render_field};
 
 /// Re-exported so callers can build and compare numeric values without depending on the
@@ -70,6 +72,14 @@ pub fn run_with_input(source: &str, inputs: &[&str]) -> Result<Outcome, NaturalE
     run_in_library(source, &Library::new(), inputs)
 }
 
+/// Runs a program that presents maps, filling each screen's entry fields from `answers`.
+///
+/// Named separately from [`run_with_input`] because a map read and a line-mode INPUT are
+/// different statements even though both draw their answers from the same list.
+pub fn run_with_screen(source: &str, answers: &[&str]) -> Result<Outcome, NaturalError> {
+    run_in_library(source, &Library::new(), answers)
+}
+
 /// Runs a program that may CALLNAT the subprograms in `library`.
 pub fn run_in_library(
     source: &str,
@@ -94,6 +104,23 @@ pub fn run_in_library(
                 };
                 supplied += 1;
                 interp.provide_input(value)?;
+            }
+            Step::NeedsScreen(screen) => {
+                // Fill the screen's entry fields in order from the supplied answers, the
+                // same source a line-mode INPUT draws from.
+                let mut filled = Vec::new();
+                for field in screen.input_fields() {
+                    let Some(bound) = &field.bound_to else {
+                        continue;
+                    };
+                    let Some(value) = inputs.get(supplied) else {
+                        break;
+                    };
+                    supplied += 1;
+                    prompts.push(bound.clone());
+                    filled.push((bound.clone(), (*value).to_string()));
+                }
+                interp.provide_screen(&filled, "ENTR")?;
             }
             Step::Done => break,
         }

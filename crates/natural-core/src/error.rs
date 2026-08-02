@@ -171,6 +171,15 @@ pub enum NaturalError {
         source_message: String,
     },
 
+    #[error(
+        "Line {line}: REINPUT only works while an INPUT is being processed. It sends the \
+         operator back to the screen they just filled in."
+    )]
+    ReinputWithoutInput { line: usize },
+
+    #[error("Line {line}: there is no map called '{name}'. Define it with DEFINE MAP.")]
+    UnknownMap { name: String, line: usize },
+
     #[error("Line {line}: cannot divide by zero.")]
     DivisionByZero { line: usize },
 
