@@ -1,5 +1,5 @@
-/* ABOUTME: VTT styling: split pane, 3270 green-screen terminal, and the Operator
-   ABOUTME: Information Area strip. Look and feel decisions come from spike 08. */
+/* ABOUTME: VTT styling. Shell chrome follows the CertKraken design system; the terminal
+   ABOUTME: stays authentically 3270, because the subject is a green screen. */
 
 /* rbanffy/3270font, BSD-3-Clause and OFL-1.1-RFN. It descends from the x3270 font, which
    was hand-copied from a physical IBM 3270, so it is the cheapest large jump in
@@ -13,14 +13,27 @@
 }
 
 :root {
-  --ink: #1b1f24;
-  --mid: #57606a;
-  --line: #d8dee4;
-  --paper: #ffffff;
-  --shell: #f6f8fa;
-  --accent: #1f6feb;
+  /* CertKraken design system. Values taken from the brand guidelines and the site's own
+     tailwind config, so this course reads as part of the same family of properties. */
+  --purple: #5b2c91;
+  --purple-dark: #4a2373;
+  --purple-light: #7d3fbf;
+  --cyan: #00d9ff;
+  --cyan-dark: #00b8db;
+  --cyan-light: #33e4ff;
+  --navy: #1a1642;
+  --navy-light: #2d2558;
+  --offwhite: #f8f9fa;
 
-  /* Phosphor palettes. Green is the default; amber is the alternate a learner can pick. */
+  --ink: #1f2937;
+  --mid: #5f6975;
+  --line: #e5e7eb;
+  --paper: #ffffff;
+  --panel: #f5f0fa;
+
+  /* Phosphor palettes for the terminal itself. Green is the default; amber is the
+     alternate a learner can pick. These are deliberately NOT brand colours: a 3270 was
+     green or amber, and the subject matter outranks the palette here. */
   --screen-bg: #0b1207;
   --screen-fg: #33ff66;
   --screen-dim: #1f9c40;
@@ -34,12 +47,12 @@ body.amber {
   --screen-glow: rgba(255, 176, 0, 0.16);
 }
 
-* , *::before, *::after { box-sizing: border-box; }
+*, *::before, *::after { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-  background: var(--shell);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
+  background: var(--offwhite);
   color: var(--ink);
   display: flex;
   flex-direction: column;
@@ -47,53 +60,80 @@ body {
   overflow: hidden;
 }
 
+/* ---- header ---- */
 header {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 16px;
-  background: #0d1117;
+  gap: 16px;
+  padding: 11px 18px;
+  background: linear-gradient(100deg, var(--navy) 0%, var(--purple-dark) 62%, var(--purple) 100%);
   color: #fff;
 }
-header .brand { font-weight: 800; font-size: 16px; display: flex; align-items: center; gap: 9px; }
-header .brand .em { font-size: 19px; }
-header .sub { font-weight: 500; opacity: .65; font-size: 13px; }
-.spacer { flex: 1; }
-.lessonpick { display: flex; align-items: center; gap: 8px; font-size: 13px; }
-.lessonpick label { opacity: .7; }
-.lessonpick select {
-  font: inherit; font-size: 13px; padding: 5px 8px; border-radius: 7px;
-  border: 1px solid #30363d; background: #161b22; color: #fff;
+header .brand { display: flex; align-items: baseline; gap: 10px; }
+header .wordmark { font-weight: 800; font-size: 17px; letter-spacing: -0.01em; }
+header .sub { font-weight: 500; opacity: 0.62; font-size: 12.5px; }
+
+/* A small terminal glyph rather than a mascot. This course is language training, not
+   certification prep, so it carries the design system without the product identity. */
+header .mark {
+  width: 15px; height: 12px; border-radius: 2px;
+  border: 2px solid var(--cyan);
+  box-shadow: 0 0 9px rgba(0, 217, 255, 0.55);
+  align-self: center;
 }
+
+.spacer { flex: 1; }
+
+.progresswrap { display: flex; align-items: center; gap: 9px; }
+.progressbar {
+  width: 116px; height: 6px; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16); overflow: hidden;
+}
+.progressfill {
+  height: 100%; width: 0%; border-radius: 999px;
+  background: linear-gradient(90deg, var(--cyan-dark), var(--cyan));
+  transition: width 0.35s ease;
+}
+.progresstext { font-size: 11.5px; font-variant-numeric: tabular-nums; opacity: 0.78; }
+
+.lessonpick { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.lessonpick label { opacity: 0.66; }
+.lessonpick select {
+  font: inherit; font-size: 13px; padding: 5px 9px; border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08); color: #fff;
+}
+.lessonpick select option { color: var(--ink); }
 
 .split { flex: 1; display: flex; min-height: 0; }
 
 /* ---- left: the lesson ---- */
 .guide {
-  width: 42%;
-  min-width: 340px;
-  max-width: 620px;
-  overflow: auto;
-  padding: 22px 24px;
+  width: 42%; min-width: 340px; max-width: 620px;
+  overflow: auto; padding: 22px 24px;
   background: var(--paper);
   border-right: 1px solid var(--line);
 }
-.guide h1 { font-size: 21px; margin: 0 0 6px; }
+.guide h1 { font-size: 21px; margin: 0 0 6px; color: var(--navy); }
 .guide .lede { color: var(--mid); font-size: 14px; margin: 0 0 18px; line-height: 1.55; }
 .guide .foot { color: var(--mid); font-size: 12px; margin-top: 22px; line-height: 1.5; }
 
-.step { border: 1px solid var(--line); border-radius: 11px; margin-bottom: 13px; overflow: hidden; }
+.step {
+  border: 1px solid var(--line); border-radius: 11px;
+  margin-bottom: 13px; overflow: hidden;
+}
 .step .h {
-  display: flex; align-items: center; gap: 11px; padding: 11px 13px;
-  background: #f6f8fa; cursor: pointer;
+  display: flex; align-items: center; gap: 11px;
+  padding: 11px 13px; background: var(--panel); cursor: pointer;
 }
 .step .num {
   width: 25px; height: 25px; flex: 0 0 25px; border-radius: 50%;
-  background: #ddeafd; color: var(--accent); font-weight: 800;
+  background: var(--purple); color: #fff; font-weight: 800;
   display: grid; place-items: center; font-size: 12.5px;
 }
-.step .t { font-weight: 700; font-size: 14.5px; }
+.step.done .num { background: #1a7f37; }
+.step .t { font-weight: 700; font-size: 14.5px; color: var(--navy); }
 .step .chev { margin-left: auto; color: var(--mid); font-size: 12px; }
 .step .b { display: none; padding: 12px 13px; font-size: 14px; line-height: 1.6; }
 .step.open .b { display: block; }
@@ -101,65 +141,112 @@ header .sub { font-weight: 500; opacity: .65; font-size: 13px; }
 .step .b p:last-child { margin-bottom: 0; }
 
 code.inl {
-  background: #eef1f4; border-radius: 5px; padding: 1px 6px;
-  font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12.5px;
+  background: var(--panel); color: var(--purple-dark);
+  border-radius: 5px; padding: 1px 6px;
+  font-family: "3270", ui-monospace, Menlo, Consolas, monospace; font-size: 12.5px;
 }
 
-/* A runnable code block. Clicking loads it into the terminal and runs it, which is the
-   interaction the Packt VTT proved out. See reference/vtt-model/. */
+/* A runnable code block. Clicking loads it into the editor and runs it. */
 .cmd {
   position: relative; display: block; white-space: pre;
-  background: #0d1117; color: #d6deeb; border-radius: 9px;
+  background: var(--navy); color: #d6deeb; border-radius: 9px;
   padding: 11px 74px 11px 13px; margin: 9px 0;
   font-family: "3270", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 13px; line-height: 1.45; cursor: pointer; overflow-x: auto;
 }
-.cmd:hover { outline: 2px solid var(--accent); }
+.cmd:hover { outline: 2px solid var(--cyan); }
 .cmd .go {
   position: absolute; top: 8px; right: 8px;
   font: inherit; font-size: 11px; font-weight: 700;
-  background: var(--accent); color: #fff; border: 0; border-radius: 6px;
+  background: var(--cyan); color: var(--navy); border: 0; border-radius: 6px;
   padding: 4px 9px; cursor: pointer;
 }
-.cmd.sent .go { background: #1a7f37; }
+.cmd.sent .go { background: #57d98a; }
 
 .tip {
-  background: #eff7ee; border: 1px solid #cbe5c8; border-radius: 9px;
-  padding: 10px 12px; font-size: 13px; color: #24603a; margin: 9px 0; line-height: 1.55;
+  background: #edf9fc; border: 1px solid #b6e8f4; border-radius: 9px;
+  padding: 10px 12px; font-size: 13px; color: #0f5666; margin: 9px 0; line-height: 1.55;
 }
 .warn {
   background: #fff8e6; border: 1px solid #f0dda4; border-radius: 9px;
   padding: 10px 12px; font-size: 13px; color: #6b4c00; margin: 9px 0; line-height: 1.55;
 }
 
-/* ---- right: the terminal ---- */
+/* An exercise: the learner writes the code, and the check runs against what it did. */
+.exercise {
+  border: 1px solid var(--purple-light); border-radius: 10px;
+  background: #faf7fe; padding: 12px 13px; margin: 11px 0;
+}
+.exercise .xh {
+  display: flex; align-items: center; gap: 8px;
+  font-weight: 800; font-size: 12px; letter-spacing: 0.08em;
+  color: var(--purple); text-transform: uppercase; margin-bottom: 7px;
+}
+.exercise .xtask { font-size: 13.5px; line-height: 1.55; margin: 0 0 10px; }
+.exercise .xact { display: flex; gap: 8px; align-items: center; }
+.exercise button {
+  font: inherit; font-size: 12.5px; font-weight: 700;
+  border: 0; border-radius: 7px; padding: 6px 13px; cursor: pointer;
+}
+.exercise .load { background: var(--purple); color: #fff; }
+.exercise .check { background: var(--cyan); color: var(--navy); }
+.exercise button:hover { filter: brightness(1.09); }
+.xresult { font-size: 13px; margin-top: 9px; line-height: 1.5; display: none; }
+.xresult.show { display: block; }
+.xresult.pass { color: #1a7f37; font-weight: 600; }
+.xresult.fail { color: #b3261e; }
+
+/* ---- right: editor and terminal ---- */
 .termcol { flex: 1; min-width: 0; display: flex; flex-direction: column; background: #05080c; }
 
 .termbar {
   flex: 0 0 auto; display: flex; align-items: center; gap: 8px;
-  padding: 8px 10px; background: #0a0f16; border-bottom: 1px solid #141c26;
+  padding: 7px 10px; background: #0a0f16; border-bottom: 1px solid #141c26;
 }
-.termlabel {
-  font-size: 11px; font-weight: 800; letter-spacing: .12em;
-  color: #6e7d90;
+.tab {
+  font: inherit; font-size: 11px; font-weight: 800; letter-spacing: 0.12em;
+  background: transparent; color: #6e7d90; border: 0;
+  border-bottom: 2px solid transparent; padding: 5px 10px; cursor: pointer;
 }
+.tab.active { color: var(--cyan); border-bottom-color: var(--cyan); }
+.tab:hover { color: #b9c6d4; }
+
 .act {
   font: inherit; font-size: 12.5px; font-weight: 700;
-  background: var(--accent); color: #fff; border: 0; border-radius: 7px;
-  padding: 6px 12px; cursor: pointer;
+  background: var(--cyan); color: var(--navy); border: 0; border-radius: 7px;
+  padding: 6px 13px; cursor: pointer;
 }
 .act.ghost { background: #1c2531; color: #b9c6d4; }
 .act:hover { filter: brightness(1.12); }
 
-/* A real 3270 does not scroll or reflow, so the grid is fixed and centred rather than
-   stretched to the pane. */
+.pane { flex: 1; min-height: 0; display: flex; }
+.pane[hidden] { display: none; }
+
+/* The source editor, with a line-number gutter because Natural diagnostics name lines. */
+.editorpane { background: #0d1117; }
+.gutter {
+  flex: 0 0 auto; padding: 12px 8px 12px 12px;
+  font-family: "3270", ui-monospace, Menlo, Consolas, monospace;
+  font-size: 14px; line-height: 1.5; color: #3d4a5c;
+  text-align: right; user-select: none; white-space: pre;
+  border-right: 1px solid #1b2430; background: #0a0e14;
+}
+#editor {
+  flex: 1; min-width: 0; resize: none; border: 0; outline: 0;
+  padding: 12px 14px; background: transparent; color: #d6deeb;
+  font-family: "3270", ui-monospace, Menlo, Consolas, monospace;
+  font-size: 14px; line-height: 1.5; tab-size: 2;
+  overflow: auto; caret-color: var(--cyan);
+}
+
+.termpane { flex-direction: column; }
+
+/* A real 3270 does not scroll or reflow, so the grid is a fixed panel anchored to the top
+   rather than stretched to the pane. */
 .screenwrap {
   flex: 1; min-height: 0; position: relative;
-  /* The grid is a fixed panel, centred across the pane but anchored to the top, so output
-     reads from the first line the way a terminal should. */
   display: grid; place-items: start center; padding: 16px 14px;
-  background: var(--screen-bg);
-  overflow: hidden;
+  background: var(--screen-bg); overflow: hidden;
 }
 .screen { position: relative; z-index: 1; }
 .screen .xterm { padding: 0; }
@@ -186,7 +273,7 @@ code.inl {
   padding: 6px 12px; background: #0a0f16; border-top: 1px solid #141c26;
 }
 .aidlabel {
-  font-size: 10.5px; font-weight: 800; letter-spacing: .12em; color: #6e7d90;
+  font-size: 10.5px; font-weight: 800; letter-spacing: 0.12em; color: #6e7d90;
   margin-right: 4px;
 }
 .aidbar button {
@@ -202,17 +289,17 @@ code.inl {
   flex: 0 0 auto; display: flex; align-items: center; gap: 14px;
   padding: 5px 12px;
   border-top: 2px solid var(--screen-dim);
-  background: var(--screen-bg);
-  color: var(--screen-fg);
+  background: var(--screen-bg); color: var(--screen-fg);
   font-family: "3270", ui-monospace, Menlo, Consolas, monospace;
-  font-size: 12.5px; letter-spacing: .04em;
+  font-size: 12.5px; letter-spacing: 0.04em;
 }
 .oia-msg { font-weight: 700; }
-.oia-pos { opacity: .72; }
+.oia-pos { opacity: 0.72; }
 
 @media (max-width: 900px) {
   body { overflow: auto; height: auto; }
   .split { flex-direction: column; }
   .guide { width: 100%; max-width: none; border-right: 0; border-bottom: 1px solid var(--line); }
-  .termcol { min-height: 70vh; }
+  .termcol { min-height: 76vh; }
+  .progresswrap { display: none; }
 }

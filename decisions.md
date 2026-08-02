@@ -569,3 +569,40 @@ The positioning constraint from the original contract can now be lifted. Tier 2 
 the modularization and data-area content spike 02 identified as the difference between
 "can write a program" and job-ready maintenance capability, so the prohibition on claiming
 job-readiness no longer applies.
+
+## 2026-08-02T00:00:00Z · 2.2 · A course rather than a demo: editor, exercises, progress, branding
+
+Three gaps closed that separated this from something sellable.
+
+**An editor.** Until now a learner could only press Run on code somebody else wrote, which
+is not learning to program. The right pane now has EDITOR and TERMINAL tabs, and the
+editor has a line-number gutter, because Natural diagnostics name lines and a gutter is
+how a learner connects "Line 6" to their own source. Lesson code blocks load into it, so
+a learner can run an example and then change it.
+
+**Graded exercises.** Six lessons now end with a task the learner writes themselves, and a
+check that runs their program headlessly and inspects what it actually did: output lines,
+final field values, and committed record count. The checks say what was wrong rather than
+only that something was, for example "Line 2 should be TWO, got THREE" and "#TOTAL holds
+87.5, expected 87.50". A check never depends on somebody typing at the right moment, so
+INPUT answers are supplied by the exercise.
+
+**Progress.** Completed exercises persist in localStorage, mark their step with a
+checkmark, and drive a progress meter in the header.
+
+**Branding.** Michael asked whether this should match his other properties, and named
+CertKraken. Adopted its design system verbatim from the brand guidelines and the site's own
+tailwind config: Deep Purple #5B2C91, Vibrant Cyan #00D9FF, Dark Navy #1A1642, off-white
+#F8F9FA. Deliberately NOT adopted: the Kraken mascot and the "Release the Kraken" tagline.
+CertKraken's brand promise is certification exam prep built by someone who holds the
+certifications taught; this is language training and Michael holds no Natural certification,
+so wearing the full identity would assert a claim the promise does not cover. Whether the
+course ships under the CertKraken umbrella is a business decision, and the design system
+carries the family resemblance either way.
+
+The terminal keeps its green and amber phosphor rather than brand colours. A 3270 was green
+or amber, and on this one page the subject outranks the palette.
+
+Verified: gate green; 42 of 42 lesson code blocks execute; all 6 exercises accept a
+known-good solution and the first also rejects a wrong one with a specific reason; the full
+UI loop drives starter load, edit, check, checkmark, meter, and persistence.
