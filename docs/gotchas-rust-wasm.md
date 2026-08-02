@@ -223,6 +223,34 @@ All versions below verified as of 2026-07-22 against the linked source.
 * **We do NOT need COOP or COEP**, because of the state-machine choice above.
   That is the whole point: every static host works with default configuration.
 
+## wasm-opt fails on a fresh build
+
+* **Symptom**, hit on the first real `wasm-pack build` in this repo on 2026-08-02:
+
+  ```
+  [wasm-validator error in function 439] unexpected false:
+  Bulk memory operations require bulk memory [--enable-bulk-memory]
+  Error: failed to execute `wasm-opt`: exited with exit status: 1
+  ```
+
+* **Cause:** the `wasm-opt` binary wasm-pack downloads is older than the WebAssembly
+  current rustc emits. Bulk-memory operations (`memory.copy`) are on by default in
+  the compiler output but off by default in that `wasm-opt`.
+
+* **Wrong fix:** `wasm-opt = false`, which the error message itself suggests. It
+  works, but ships a larger unoptimized module for a page where binary size is
+  user-facing.
+
+* **Correct fix**, in the wasm crate's `Cargo.toml`:
+
+  ```toml
+  [package.metadata.wasm-pack.profile.release]
+  wasm-opt = ['-O', '--enable-bulk-memory', '--enable-nontrapping-float-to-int']
+  ```
+
+  Both features are widely supported in browsers; the flags only tell the optimizer
+  to accept them. With this the release build succeeds and stays optimized.
+
 ## Crates that look right and are not
 
 * **Do NOT adopt `segeljakt/xterm-js-rs`** despite it looking like an exact match

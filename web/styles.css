@@ -1,0 +1,201 @@
+/* ABOUTME: VTT styling: split pane, 3270 green-screen terminal, and the Operator
+   ABOUTME: Information Area strip. Look and feel decisions come from spike 08. */
+
+/* rbanffy/3270font, BSD-3-Clause and OFL-1.1-RFN. It descends from the x3270 font, which
+   was hand-copied from a physical IBM 3270, so it is the cheapest large jump in
+   authenticity available. License text is in fonts/LICENSE-3270font.txt. */
+@font-face {
+  font-family: "3270";
+  src: url("./fonts/3270-Regular.woff") format("woff");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --ink: #1b1f24;
+  --mid: #57606a;
+  --line: #d8dee4;
+  --paper: #ffffff;
+  --shell: #f6f8fa;
+  --accent: #1f6feb;
+
+  /* Phosphor palettes. Green is the default; amber is the alternate a learner can pick. */
+  --screen-bg: #0b1207;
+  --screen-fg: #33ff66;
+  --screen-dim: #1f9c40;
+  --screen-glow: rgba(51, 255, 102, 0.16);
+}
+
+body.amber {
+  --screen-bg: #140d02;
+  --screen-fg: #ffb000;
+  --screen-dim: #a86f00;
+  --screen-glow: rgba(255, 176, 0, 0.16);
+}
+
+* , *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  background: var(--shell);
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: #0d1117;
+  color: #fff;
+}
+header .brand { font-weight: 800; font-size: 16px; display: flex; align-items: center; gap: 9px; }
+header .brand .em { font-size: 19px; }
+header .sub { font-weight: 500; opacity: .65; font-size: 13px; }
+.spacer { flex: 1; }
+.lessonpick { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.lessonpick label { opacity: .7; }
+.lessonpick select {
+  font: inherit; font-size: 13px; padding: 5px 8px; border-radius: 7px;
+  border: 1px solid #30363d; background: #161b22; color: #fff;
+}
+
+.split { flex: 1; display: flex; min-height: 0; }
+
+/* ---- left: the lesson ---- */
+.guide {
+  width: 42%;
+  min-width: 340px;
+  max-width: 620px;
+  overflow: auto;
+  padding: 22px 24px;
+  background: var(--paper);
+  border-right: 1px solid var(--line);
+}
+.guide h1 { font-size: 21px; margin: 0 0 6px; }
+.guide .lede { color: var(--mid); font-size: 14px; margin: 0 0 18px; line-height: 1.55; }
+.guide .foot { color: var(--mid); font-size: 12px; margin-top: 22px; line-height: 1.5; }
+
+.step { border: 1px solid var(--line); border-radius: 11px; margin-bottom: 13px; overflow: hidden; }
+.step .h {
+  display: flex; align-items: center; gap: 11px; padding: 11px 13px;
+  background: #f6f8fa; cursor: pointer;
+}
+.step .num {
+  width: 25px; height: 25px; flex: 0 0 25px; border-radius: 50%;
+  background: #ddeafd; color: var(--accent); font-weight: 800;
+  display: grid; place-items: center; font-size: 12.5px;
+}
+.step .t { font-weight: 700; font-size: 14.5px; }
+.step .chev { margin-left: auto; color: var(--mid); font-size: 12px; }
+.step .b { display: none; padding: 12px 13px; font-size: 14px; line-height: 1.6; }
+.step.open .b { display: block; }
+.step .b p { margin: 0 0 10px; }
+.step .b p:last-child { margin-bottom: 0; }
+
+code.inl {
+  background: #eef1f4; border-radius: 5px; padding: 1px 6px;
+  font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12.5px;
+}
+
+/* A runnable code block. Clicking loads it into the terminal and runs it, which is the
+   interaction the Packt VTT proved out. See reference/vtt-model/. */
+.cmd {
+  position: relative; display: block; white-space: pre;
+  background: #0d1117; color: #d6deeb; border-radius: 9px;
+  padding: 11px 74px 11px 13px; margin: 9px 0;
+  font-family: "3270", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px; line-height: 1.45; cursor: pointer; overflow-x: auto;
+}
+.cmd:hover { outline: 2px solid var(--accent); }
+.cmd .go {
+  position: absolute; top: 8px; right: 8px;
+  font: inherit; font-size: 11px; font-weight: 700;
+  background: var(--accent); color: #fff; border: 0; border-radius: 6px;
+  padding: 4px 9px; cursor: pointer;
+}
+.cmd.sent .go { background: #1a7f37; }
+
+.tip {
+  background: #eff7ee; border: 1px solid #cbe5c8; border-radius: 9px;
+  padding: 10px 12px; font-size: 13px; color: #24603a; margin: 9px 0; line-height: 1.55;
+}
+.warn {
+  background: #fff8e6; border: 1px solid #f0dda4; border-radius: 9px;
+  padding: 10px 12px; font-size: 13px; color: #6b4c00; margin: 9px 0; line-height: 1.55;
+}
+
+/* ---- right: the terminal ---- */
+.termcol { flex: 1; min-width: 0; display: flex; flex-direction: column; background: #05080c; }
+
+.termbar {
+  flex: 0 0 auto; display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; background: #0a0f16; border-bottom: 1px solid #141c26;
+}
+.termlabel {
+  font-size: 11px; font-weight: 800; letter-spacing: .12em;
+  color: #6e7d90;
+}
+.act {
+  font: inherit; font-size: 12.5px; font-weight: 700;
+  background: var(--accent); color: #fff; border: 0; border-radius: 7px;
+  padding: 6px 12px; cursor: pointer;
+}
+.act.ghost { background: #1c2531; color: #b9c6d4; }
+.act:hover { filter: brightness(1.12); }
+
+/* A real 3270 does not scroll or reflow, so the grid is fixed and centred rather than
+   stretched to the pane. */
+.screenwrap {
+  flex: 1; min-height: 0; position: relative;
+  /* The grid is a fixed panel, centred across the pane but anchored to the top, so output
+     reads from the first line the way a terminal should. */
+  display: grid; place-items: start center; padding: 16px 14px;
+  background: var(--screen-bg);
+  overflow: hidden;
+}
+.screen { position: relative; z-index: 1; }
+.screen .xterm { padding: 0; }
+
+/* Subtle CRT treatment, self-authored: scanlines plus a phosphor glow. Deliberately
+   understated so it never impedes reading. cool-retro-term-renderer is GPL-3.0 and is
+   not vendored. */
+.crt {
+  position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0) 0px,
+      rgba(0, 0, 0, 0) 2px,
+      rgba(0, 0, 0, 0.16) 3px,
+      rgba(0, 0, 0, 0.16) 4px
+    ),
+    radial-gradient(ellipse at center, var(--screen-glow) 0%, rgba(0, 0, 0, 0) 72%);
+}
+
+/* The Operator Information Area: the strip a 3270 uses to tell you what it is doing. */
+.oia {
+  flex: 0 0 auto; display: flex; align-items: center; gap: 14px;
+  padding: 5px 12px;
+  border-top: 2px solid var(--screen-dim);
+  background: var(--screen-bg);
+  color: var(--screen-fg);
+  font-family: "3270", ui-monospace, Menlo, Consolas, monospace;
+  font-size: 12.5px; letter-spacing: .04em;
+}
+.oia-msg { font-weight: 700; }
+.oia-pos { opacity: .72; }
+
+@media (max-width: 900px) {
+  body { overflow: auto; height: auto; }
+  .split { flex-direction: column; }
+  .guide { width: 100%; max-width: none; border-right: 0; border-bottom: 1px solid var(--line); }
+  .termcol { min-height: 70vh; }
+}

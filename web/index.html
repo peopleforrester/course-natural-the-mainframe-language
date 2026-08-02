@@ -1,0 +1,64 @@
+<!-- ABOUTME: The course VTT: lesson instructions on the left, a 3270-styled terminal on the
+     ABOUTME: right running the Natural interpreter as WebAssembly, entirely client-side. -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Natural: The Mainframe Language</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>%F0%9F%96%A5</text></svg>">
+<link rel="stylesheet" href="./vendor/xterm.css" />
+<link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header>
+    <div class="brand"><span class="em">🖥</span> Natural <span class="sub">The Mainframe Language</span></div>
+    <div class="spacer"></div>
+    <div class="lessonpick">
+      <label for="lessonsel">Lesson</label>
+      <select id="lessonsel"></select>
+    </div>
+  </header>
+
+  <div class="split">
+    <section class="guide" id="guide">
+      <h1 id="lessontitle">Loading…</h1>
+      <p class="lede" id="lessonlede"></p>
+      <div id="steps"></div>
+      <p class="foot">
+        This course runs a teaching interpreter over a sample dataset in your browser.
+        It is not a live ADABAS instance, and it implements a subset of Natural chosen
+        for learning.
+      </p>
+    </section>
+
+    <section class="termcol">
+      <div class="termbar">
+        <span class="termlabel">TERMINAL</span>
+        <div class="spacer"></div>
+        <button id="runbtn" class="act">Run  ▶</button>
+        <button id="resetbtn" class="act ghost">Reset</button>
+        <select id="palette" class="act ghost" title="Phosphor">
+          <option value="green">Green</option>
+          <option value="amber">Amber</option>
+        </select>
+      </div>
+      <div class="screenwrap">
+        <div id="screen" class="screen"></div>
+        <div class="crt" aria-hidden="true"></div>
+      </div>
+      <!-- The Operator Information Area. On a real 3270 this strip is where the terminal
+           tells you what it is doing; here it turns interpreter state into a teaching
+           surface. See research/08-mainframe-emulators-3270.md. -->
+      <div class="oia" id="oia">
+        <span class="oia-sys" id="oiaSys">4  A</span>
+        <span class="oia-msg" id="oiaMsg"></span>
+        <span class="spacer"></span>
+        <span class="oia-pos" id="oiaPos">24/080</span>
+      </div>
+    </section>
+  </div>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
