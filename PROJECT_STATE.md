@@ -1,6 +1,6 @@
 # Project State: course-natural-the-mainframe-language
 
-Phase: 3.3 Promote (Tier 1 shipped: interpreter, wasm, VTT, and all nine lessons)
+Phase: 2.2 Implement (Tier 2: modularization, data areas, REINPUT, and 3270 maps)
 Approved: 2026-07-22T18:45:25Z by Michael (sha256:135613afc4c9)
 
 ## Lifecycle
