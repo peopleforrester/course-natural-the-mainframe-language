@@ -107,6 +107,22 @@ pub enum Statement {
         top: usize,
         line: usize,
     },
+    /// Begin a descriptor search. WITH selects the records, WHERE narrows them afterwards,
+    /// which is why *NUMBER reports the WITH count rather than the surviving count.
+    FindInit {
+        view: String,
+        with: Condition,
+        filter: Option<Condition>,
+        sorted_by: Option<String>,
+        limit: Option<usize>,
+        key: usize,
+        line: usize,
+    },
+    /// Jump when the search that owns `key` found nothing.
+    JumpIfNoRecords {
+        key: usize,
+        target: usize,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -219,6 +235,21 @@ enum OpenBlock {
         escapes: Vec<PendingEscape>,
         line: usize,
     },
+    Find {
+        key: usize,
+        view: String,
+        /// The guard emitted after FindInit, patched to the NOREC body or to the exit.
+        guard: usize,
+        /// Where the main loop body begins. Moves past the NOREC clause once one is seen.
+        body_start: usize,
+        /// The jump that skips the NOREC body when records were found.
+        skip_norec: Option<usize>,
+        /// The jump that leaves the FIND after the NOREC body has run.
+        norec_exit: Option<usize>,
+        in_norec: bool,
+        escapes: Vec<PendingEscape>,
+        line: usize,
+    },
     Decide {
         /// The operand every VALUE clause is compared against, or None for DECIDE FOR.
         subject: Option<Operand>,
@@ -242,6 +273,7 @@ impl OpenBlock {
             | OpenBlock::For { line, .. }
             | OpenBlock::Repeat { line, .. }
             | OpenBlock::Read { line, .. }
+            | OpenBlock::Find { line, .. }
             | OpenBlock::Decide { line, .. } => *line,
         }
     }
@@ -251,7 +283,10 @@ impl OpenBlock {
     fn is_loop(&self) -> bool {
         matches!(
             self,
-            OpenBlock::For { .. } | OpenBlock::Repeat { .. } | OpenBlock::Read { .. }
+            OpenBlock::For { .. }
+                | OpenBlock::Repeat { .. }
+                | OpenBlock::Read { .. }
+                | OpenBlock::Find { .. }
         )
     }
 }
@@ -339,6 +374,11 @@ pub fn parse(source: &str) -> Result<Program, NaturalError> {
             OpenBlock::Read { .. } => NaturalError::MissingLoopEnd {
                 keyword: "READ".to_string(),
                 closer: "END-READ".to_string(),
+                line,
+            },
+            OpenBlock::Find { .. } => NaturalError::MissingLoopEnd {
+                keyword: "FIND".to_string(),
+                closer: "END-FIND".to_string(),
                 line,
             },
             OpenBlock::Decide { .. } => NaturalError::MissingLoopEnd {
@@ -461,6 +501,71 @@ fn parse_line(
                 .push(parse_arithmetic_verb(&head, &tokens[1..], line)?);
             Ok(false)
         }
+        // IF NO RECORDS FOUND is a clause of the enclosing FIND, not a conditional.
+        "IF" if is_no_records_clause(tokens) => {
+            let Some(OpenBlock::Find {
+                guard,
+                skip_norec,
+                in_norec,
+                ..
+            }) = blocks.last_mut()
+            else {
+                return Err(NaturalError::UnexpectedBlockKeyword {
+                    keyword: "IF NO RECORDS FOUND".to_string(),
+                    hint: "It belongs directly inside a FIND block.".to_string(),
+                    line,
+                });
+            };
+            if skip_norec.is_some() {
+                return Err(NaturalError::UnexpectedBlockKeyword {
+                    keyword: "IF NO RECORDS FOUND".to_string(),
+                    hint: "A FIND takes only one of these clauses.".to_string(),
+                    line,
+                });
+            }
+            *in_norec = true;
+            let guard = *guard;
+            // When records WERE found, jump over the clause to the main loop body.
+            let skip = program.statements.len();
+            program
+                .statements
+                .push(Statement::Jump { target: usize::MAX });
+            // When none were found, the guard lands on the clause body, just past the skip.
+            let clause_start = program.statements.len();
+            patch_target(program, guard, clause_start);
+            if let Some(OpenBlock::Find { skip_norec, .. }) = blocks.last_mut() {
+                *skip_norec = Some(skip);
+            }
+            Ok(false)
+        }
+        "END-NOREC" => {
+            let Some(OpenBlock::Find {
+                skip_norec,
+                norec_exit,
+                body_start,
+                in_norec,
+                ..
+            }) = blocks.last_mut()
+            else {
+                return Err(block_mismatch("END-NOREC", "IF NO RECORDS FOUND", line));
+            };
+            if !*in_norec {
+                return Err(block_mismatch("END-NOREC", "IF NO RECORDS FOUND", line));
+            }
+            *in_norec = false;
+            let skip = skip_norec.expect("in_norec implies the skip jump exists");
+            // Having run the clause, the FIND is finished; this jump is patched at END-FIND.
+            let exit_jump = program.statements.len();
+            *norec_exit = Some(exit_jump);
+            program
+                .statements
+                .push(Statement::Jump { target: usize::MAX });
+            // The main loop body begins after the clause.
+            let main = program.statements.len();
+            *body_start = main;
+            patch_target(program, skip, main);
+            Ok(false)
+        }
         "IF" => {
             let condition = parse_condition(&tokens[1..], line)?;
             blocks.push(OpenBlock::If {
@@ -534,6 +639,69 @@ fn parse_line(
             for jump in end_jumps {
                 patch_target(program, jump, here);
             }
+            Ok(false)
+        }
+        "FIND" => {
+            let header = parse_find_header(&tokens[1..], line)?;
+            let key = program.statements.len();
+            program.statements.push(Statement::FindInit {
+                view: header.view.clone(),
+                with: header.with,
+                filter: header.filter,
+                sorted_by: header.sorted_by,
+                limit: header.limit,
+                key,
+                line,
+            });
+            // The guard runs the NOREC clause when one exists, and otherwise skips the
+            // whole loop. Its target is only known once the block's shape is seen.
+            let guard = program.statements.len();
+            program.statements.push(Statement::JumpIfNoRecords {
+                key,
+                target: usize::MAX,
+            });
+            blocks.push(OpenBlock::Find {
+                key,
+                view: header.view,
+                guard,
+                body_start: program.statements.len(),
+                skip_norec: None,
+                norec_exit: None,
+                in_norec: false,
+                escapes: Vec::new(),
+                line,
+            });
+            Ok(false)
+        }
+        "END-FIND" => {
+            let Some(OpenBlock::Find {
+                key,
+                view,
+                guard,
+                body_start,
+                norec_exit,
+                escapes,
+                ..
+            }) = pop_matching(blocks, |b| matches!(b, OpenBlock::Find { .. }))
+            else {
+                return Err(block_mismatch("END-FIND", "FIND", line));
+            };
+            let next = program.statements.len();
+            program.statements.push(Statement::ReadNext {
+                view,
+                key,
+                top: body_start,
+                line,
+            });
+            let after = program.statements.len();
+            match norec_exit {
+                // With a NOREC clause the guard already points at that clause, and it is
+                // the clause's own exit jump that leaves the FIND.
+                Some(exit_jump) => patch_target(program, exit_jump, after),
+                // Without one, an empty search skips the loop entirely.
+                None => patch_target(program, guard, after),
+            }
+            patch_escapes(program, escapes, after, next);
             Ok(false)
         }
         "READ" => {
@@ -684,7 +852,8 @@ fn parse_line(
             match loop_block {
                 OpenBlock::For { escapes, .. }
                 | OpenBlock::Repeat { escapes, .. }
-                | OpenBlock::Read { escapes, .. } => {
+                | OpenBlock::Read { escapes, .. }
+                | OpenBlock::Find { escapes, .. } => {
                     escapes.push(PendingEscape { index, kind });
                 }
                 _ => unreachable!("is_loop guarantees a loop block"),
@@ -932,7 +1101,8 @@ fn patch_target(program: &mut Program, index: usize, target: usize) {
         | Statement::IfTrueJump { target: t, .. }
         | Statement::Jump { target: t }
         | Statement::ForInit { exit: t, .. }
-        | Statement::ReadInit { exit: t, .. } => *t = target,
+        | Statement::ReadInit { exit: t, .. }
+        | Statement::JumpIfNoRecords { target: t, .. } => *t = target,
         _ => unreachable!("only jump instructions are ever patched"),
     }
 }
@@ -1017,6 +1187,85 @@ fn parse_repeat_guard(
         }
     };
     Ok(Some((parse_condition(&tokens[1..], line)?, exit_when_true)))
+}
+
+/// True for the `IF NO RECORDS FOUND` form, which is a FIND clause rather than an IF.
+fn is_no_records_clause(tokens: &[Token]) -> bool {
+    let words: Vec<String> = tokens.iter().filter_map(word_text).collect();
+    words.len() >= 2 && words[1] == "NO"
+}
+
+struct FindHeader {
+    view: String,
+    with: Condition,
+    filter: Option<Condition>,
+    sorted_by: Option<String>,
+    limit: Option<usize>,
+}
+
+/// Parses `[(limit)] <view> WITH <condition> [WHERE <condition>] [SORTED BY <field>]`.
+fn parse_find_header(tokens: &[Token], line: usize) -> Result<FindHeader, NaturalError> {
+    let malformed = || NaturalError::UnknownStatement {
+        name: "a FIND. Write it as FIND EMPLOYEES-VIEW WITH NAME = 'JONES'".to_string(),
+        line,
+    };
+    // Aligned with `tokens` position for position. A text literal has no keyword form, so
+    // it is None rather than being dropped: filtering literals out would shift every index
+    // and silently misread a condition such as WITH NAME = 'JONES'.
+    let words: Vec<Option<String>> = tokens.iter().map(keyword_at).collect();
+    let word = |i: usize| words.get(i).and_then(|w| w.as_deref());
+    let mut at = 0;
+
+    let mut limit = None;
+    if word(0) == Some("(") {
+        let count = word(1).ok_or_else(malformed)?;
+        limit = Some(count.parse::<usize>().map_err(|_| malformed())?);
+        if word(2) != Some(")") {
+            return Err(malformed());
+        }
+        at = 3;
+    }
+
+    let view = word(at).ok_or_else(malformed)?.to_string();
+    at += 1;
+
+    if word(at) != Some("WITH") {
+        return Err(malformed());
+    }
+    let with_start = at + 1;
+
+    // The clauses that may follow the search condition, in the order Natural allows.
+    let where_at = words.iter().position(|w| w.as_deref() == Some("WHERE"));
+    let sorted_at = words.iter().position(|w| w.as_deref() == Some("SORTED"));
+
+    let with_end = where_at.or(sorted_at).unwrap_or(tokens.len());
+    let with = parse_condition(&tokens[with_start..with_end], line)?;
+
+    let filter = match where_at {
+        Some(start) => {
+            let end = sorted_at.unwrap_or(tokens.len());
+            Some(parse_condition(&tokens[start + 1..end], line)?)
+        }
+        None => None,
+    };
+
+    let sorted_by = match sorted_at {
+        Some(start) => {
+            if word(start + 1) != Some("BY") {
+                return Err(malformed());
+            }
+            Some(word(start + 2).ok_or_else(malformed)?.to_string())
+        }
+        None => None,
+    };
+
+    Ok(FindHeader {
+        view,
+        with,
+        filter,
+        sorted_by,
+        limit,
+    })
 }
 
 /// Parses `[(limit)] <view> [BY <descriptor>]`.
@@ -1526,6 +1775,17 @@ fn require_name(token: &Token, line: usize) -> Result<String, NaturalError> {
             name: "a field name was expected here".to_string(),
             line,
         }),
+    }
+}
+
+/// The uppercase keyword form of a token, or None for anything that is not a bare word.
+///
+/// Unlike [`word_text`] used with `filter_map`, this preserves position, which matters
+/// whenever a clause is located by index within a token slice that may contain literals.
+fn keyword_at(token: &Token) -> Option<String> {
+    match token {
+        Token::Word { text, .. } => Some(text.to_ascii_uppercase()),
+        _ => None,
     }
 }
 

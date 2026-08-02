@@ -1,6 +1,6 @@
 # Project State: course-natural-the-mainframe-language
 
-Phase: 2.2 Implement (module 8 reading done; FIND, HISTOGRAM, and module 9 writes next)
+Phase: 2.2 Implement (module 8 done; module 9 writes and transactions next)
 Approved: 2026-07-22T18:45:25Z by Michael (sha256:135613afc4c9)
 
 ## Lifecycle
@@ -51,7 +51,7 @@ spec section 8 (v1 scope depth, confirm Rust, product intent, public-repo timing
 ## Branch & Tests
 - Branch: staging
 - Working tree: clean after the M-A commit
-- Tests: 174 passing (`cargo test --workspace`), clippy clean under `-D warnings`,
+- Tests: 193 passing (`cargo test --workspace`), clippy clean under `-D warnings`,
   `cargo fmt --check` clean
 - Toolchain: rustc 1.97.1 via the pinned `rust-toolchain.toml`, which independently
   confirmed the version claim in spike 06
