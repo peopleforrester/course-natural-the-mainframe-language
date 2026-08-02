@@ -642,3 +642,28 @@ Every lesson now has something to execute.
 
 Re-verified after the fixes: 43 of 43 lesson code blocks execute, all 6 exercises still
 accept a known-good solution, and lesson 12 loads its own code.
+
+## 2026-08-02T00:00:00Z · 2.3 · Closed the prose-gate hole
+
+The prose check only covered tracked markdown, so `web/lessons.js` (the text a learner
+actually reads) was unguarded. That is the wrong file to leave unchecked: the em-dash rule
+exists for authored prose, and lesson content is the most authored prose in the repo.
+
+Widened to markdown, JavaScript, HTML, and CSS, and extended from em-dashes to en-dashes,
+curly quotes, and the ellipsis character. The extra characters matter here beyond style:
+they render badly in a fixed-width terminal font, so a smart quote pasted into lesson text
+is a visual defect as well as a rule violation.
+
+Two exclusions, both because the punctuation is not ours to change: vendored third-party
+code under `web/vendor`, `web/pkg`, and `web/fonts`, and the verbatim copies under
+`reference/`, which were taken from the Unleashed and Packt repos and must stay faithful
+to their originals. Both were caught by the widened check on its first run, which is how
+the exclusions got written.
+
+Proved the gate works by deliberately introducing an em-dash and then a smart quote into
+`web/lessons.js` and confirming each failed the build, then reverting.
+
+One pre-existing hit fixed: a verification research file used a horizontal ellipsis to
+mark an elision inside a quotation. That character was the agent's own punctuation rather
+than the source's, so normalizing it to three periods changes no quoted text and avoids
+carving out an exception for a whole directory.
