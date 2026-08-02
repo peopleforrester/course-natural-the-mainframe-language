@@ -3,7 +3,7 @@
 
 use crate::data::Database;
 use crate::error::NaturalError;
-use crate::parser::{ArithOp, Condition, Expr, Operand, Program, Statement, WriteItem};
+use crate::parser::{ArithOp, CompareOp, Condition, Expr, Operand, Program, Statement, WriteItem};
 use crate::value::{Format, Value, coerce, print_width, render_field};
 use rust_decimal::{Decimal, RoundingStrategy};
 use std::collections::{BTreeMap, VecDeque};
@@ -110,6 +110,20 @@ impl Interpreter {
                 Field {
                     value: declaration.format.default_value(),
                     format: declaration.format.clone(),
+                },
+            );
+        }
+        for name in ["*NUMBER", "*COUNTER"] {
+            // System variables are ordinary numeric fields as far as everything else is
+            // concerned, so WRITE, DISPLAY, and IF need no special case for them.
+            fields.insert(
+                name.to_string(),
+                Field {
+                    format: Format::Numeric {
+                        int_digits: 9,
+                        decimals: 0,
+                    },
+                    value: Value::Number(Decimal::ZERO),
                 },
             );
         }
@@ -417,6 +431,77 @@ impl Interpreter {
                     }
                 }
 
+                Statement::FindInit {
+                    view,
+                    with,
+                    filter,
+                    sorted_by,
+                    limit,
+                    key,
+                    line,
+                } => {
+                    let binding = self.view_binding(&view, line)?;
+                    let ddm_name = binding.ddm.clone();
+                    if let Some(descriptor) = &sorted_by {
+                        let ddm = self
+                            .database
+                            .ddm(&ddm_name)
+                            .expect("the binding resolved this DDM");
+                        if ddm.field(descriptor).is_none() {
+                            return Err(NaturalError::UnknownDdmField {
+                                name: descriptor.clone(),
+                                ddm: ddm_name,
+                                line,
+                            });
+                        }
+                    }
+
+                    // WITH is the search the database performs, so it is what *NUMBER
+                    // reports. WHERE is applied afterwards, record by record.
+                    let mut matched = Vec::new();
+                    for record in self.database.order(sorted_by.as_deref()) {
+                        if self.record_matches(record, &with, line)? {
+                            matched.push(record);
+                        }
+                    }
+                    self.set_system_variable("*NUMBER", matched.len());
+
+                    if let Some(condition) = &filter {
+                        let mut kept = Vec::with_capacity(matched.len());
+                        for record in matched {
+                            if self.record_matches(record, condition, line)? {
+                                kept.push(record);
+                            }
+                        }
+                        matched = kept;
+                    }
+                    if let Some(limit) = limit {
+                        matched.truncate(limit);
+                    }
+
+                    self.cursors.insert(
+                        key,
+                        ReadCursor {
+                            records: matched,
+                            next: 0,
+                        },
+                    );
+                    self.advance_cursor(key, &view, line)?;
+                }
+
+                Statement::JumpIfNoRecords { key, target } => {
+                    // The cursor has already consumed its first record if one existed, so
+                    // an empty search is one whose set was empty to begin with.
+                    let empty = self
+                        .cursors
+                        .get(&key)
+                        .map(|c| c.records.is_empty())
+                        .unwrap_or(true);
+                    if empty {
+                        self.pc = target;
+                    }
+                }
+
                 Statement::Input { prompt, targets } => {
                     // Fail fast on an undeclared field rather than suspending and only
                     // discovering the problem after the learner has typed something.
@@ -462,21 +547,39 @@ impl Interpreter {
         let left = self.resolve(&condition.left)?;
         let right = self.resolve(&condition.right)?;
 
-        let ordering = match (&left, &right) {
-            (Value::Number(a), Value::Number(b)) => a.cmp(b),
-            // Natural pads the shorter operand with blanks, so trailing blanks never
-            // affect the result. Comparing the stored text gives the same answer.
-            (Value::Alpha(a), Value::Alpha(b)) => a.trim_end().cmp(b.trim_end()),
-            (Value::Logical(a), Value::Logical(b)) => a.cmp(b),
-            _ => {
-                return Err(NaturalError::IncomparableValues {
-                    left: left.describe_kind().to_string(),
-                    right: right.describe_kind().to_string(),
-                    line,
-                });
-            }
-        };
-        Ok(condition.op.holds(ordering))
+        compare(&left, &right, condition.op, line)
+    }
+
+    /// Evaluates a search condition against one stored record.
+    ///
+    /// The record's fields are read straight from the database rather than from the view
+    /// buffer, so selecting records never disturbs the record the program is looking at.
+    fn record_matches(
+        &self,
+        record: usize,
+        condition: &Condition,
+        line: usize,
+    ) -> Result<bool, NaturalError> {
+        let left = self.operand_for_record(record, &condition.left)?;
+        let right = self.operand_for_record(record, &condition.right)?;
+        compare(&left, &right, condition.op, line)
+    }
+
+    fn operand_for_record(&self, record: usize, operand: &Operand) -> Result<Value, NaturalError> {
+        match operand {
+            Operand::Literal(value) => Ok(value.clone()),
+            Operand::Variable { name, .. } => match self.database.value(record, name) {
+                Some(value) => Ok(value),
+                // Not a database field, so it is an ordinary program field.
+                None => self.resolve(operand),
+            },
+        }
+    }
+
+    fn set_system_variable(&mut self, name: &str, count: usize) {
+        if let Some(field) = self.fields.get_mut(name) {
+            field.value = Value::Number(Decimal::from(count as u64));
+        }
     }
 
     fn view_binding(&self, name: &str, line: usize) -> Result<ViewBinding, NaturalError> {
@@ -507,6 +610,9 @@ impl Interpreter {
             return Ok(false);
         };
         cursor.next += 1;
+
+        let processed = self.cursors.get(&key).map(|c| c.next).unwrap_or(0);
+        self.set_system_variable("*COUNTER", processed);
 
         for field_name in &binding.fields {
             if let Some(value) = self.database.value(record, field_name)
@@ -673,6 +779,27 @@ impl PendingInput {
             field: name.clone(),
         })
     }
+}
+
+/// Compares two values, requiring them to be of the same kind.
+///
+/// Silently coercing text and numbers would let a learner write a comparison that quietly
+/// never matches, which is worse than an error. Alphanumeric comparison ignores trailing
+/// blanks, matching Natural's padding of the shorter operand.
+fn compare(left: &Value, right: &Value, op: CompareOp, line: usize) -> Result<bool, NaturalError> {
+    let ordering = match (left, right) {
+        (Value::Number(a), Value::Number(b)) => a.cmp(b),
+        (Value::Alpha(a), Value::Alpha(b)) => a.trim_end().cmp(b.trim_end()),
+        (Value::Logical(a), Value::Logical(b)) => a.cmp(b),
+        _ => {
+            return Err(NaturalError::IncomparableValues {
+                left: left.describe_kind().to_string(),
+                right: right.describe_kind().to_string(),
+                line,
+            });
+        }
+    };
+    Ok(op.holds(ordering))
 }
 
 /// One DISPLAY column: its generated header, its width, and this row's rendered value.

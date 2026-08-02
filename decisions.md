@@ -385,3 +385,30 @@ regardless.
 
 Verified with a US payroll report: read by name, filter on country, display four columns,
 and accumulate a total.
+
+## 2026-08-01T00:00:00Z · 2.2 · Milestone M-D2: FIND, its NOREC clause, and system variables
+
+Added FIND with WITH, WHERE, SORTED BY, a record limit, the IF NO RECORDS FOUND clause,
+and the *NUMBER and *COUNTER system variables. Nineteen tests, completing module 8.
+
+The semantic distinction worth having built carefully: **WITH is the search the database
+performs and WHERE is applied afterwards, record by record, so *NUMBER reports the WITH
+count rather than the surviving count.** A test pins exactly that, because it is a real
+teaching point rather than an implementation detail, and getting it backwards would teach
+learners the wrong mental model of where work happens.
+
+The NOREC clause compiles to a guard plus two jumps: a guard after FindInit that lands on
+the clause when the search was empty, a jump emitted at the clause opening that skips it
+when records were found, and a jump at END-NOREC that leaves the FIND once the clause has
+run. Without a NOREC clause the guard simply targets the loop exit, so both shapes share
+one code path.
+
+System variables are registered as ordinary numeric fields, so WRITE, DISPLAY, and IF need
+no special case for them.
+
+One bug worth recording because the class of it will recur. The FIND header parser located
+its clauses by index over a word list built with `filter_map`, which silently DROPS text
+literals and therefore shifted every index. `WITH NAME = 'JONES'` parsed as a malformed
+condition. The fix keeps an index-aligned vector where a literal is None rather than
+absent, and the helper is named and documented so the next positional parser does not
+repeat it. Sixteen tests failed from that single root cause.
