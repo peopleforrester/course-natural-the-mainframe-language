@@ -1,5 +1,5 @@
 // ABOUTME: Milestone M-D acceptance tests for VIEW OF and the READ loop over the
-// ABOUTME: EMPLOYEES sample data, the statements that make this recognisably Natural.
+// ABOUTME: EMPLOYEES sample data, the statements that make this recognizably Natural.
 
 use natural_core::{NaturalError, Value, run, run_with_input};
 

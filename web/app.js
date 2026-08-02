@@ -455,8 +455,11 @@ function renderLesson(lessonIndex) {
     els.steps.appendChild(card);
   });
 
+  // Load the lesson's first runnable example. A lesson with nothing to run clears the
+  // editor rather than leaving the previous lesson's code sitting there, which reads as
+  // though it belongs to what is now on screen.
   const first = lesson.steps.find((s) => s.code || s.exercise);
-  if (first) loadSource(first.code || (first.exercise && first.exercise.starter) || '');
+  loadSource(first ? first.code || (first.exercise && first.exercise.starter) || '' : '');
 }
 
 function buildExercise(exercise, id, card, head) {

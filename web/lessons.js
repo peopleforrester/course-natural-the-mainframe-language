@@ -891,6 +891,27 @@ export const LESSONS = [
           'with the same name. That isolation is the reason subprograms are safe to reuse.' +
           '</div>',
       },
+      {
+        title: 'See the isolation for yourself',
+        body:
+          '<p>This program has its own <code class="inl">#IN</code>, and so does the ' +
+          '<code class="inl">DOUBLE-IT</code> subprogram it calls. They are different ' +
+          'fields that happen to share a name.</p>' +
+          '<p>Run it. The subprogram doubles what was passed to it, and the caller\'s ' +
+          '<code class="inl">#IN</code> comes back untouched at 999.</p>',
+        code:
+          "DEFINE DATA LOCAL\n" +
+          "1 #VALUE (N5)\n" +
+          "1 #RESULT (N7)\n" +
+          "1 #IN (N5)\n" +
+          "END-DEFINE\n" +
+          "MOVE 5 TO #VALUE\n" +
+          "MOVE 999 TO #IN\n" +
+          "CALLNAT 'DOUBLE-IT' #VALUE #RESULT\n" +
+          "WRITE 'The subprogram returned:' #RESULT\n" +
+          "WRITE 'My own #IN is still: ' #IN\n" +
+          "END",
+      },
     ],
   },
 
@@ -1054,7 +1075,7 @@ export const LESSONS = [
     title: '15. Capstone: a maintenance program',
     lede:
       'Everything together: a map to collect a search, a subprogram to do the counting, ' +
-      'subroutines to organise the work, and a committed database change.',
+      'subroutines to organize the work, and a committed database change.',
     steps: [
       {
         title: 'Search and report',
