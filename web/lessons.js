@@ -66,6 +66,28 @@ export const LESSONS = [
           'internal. Run this to see one.</p>',
         code: "WRITE 'I forgot something'",
       },
+      {
+        title: 'Your turn: write a program',
+        body: '<p>Time to write one yourself rather than running mine.</p>',
+        exercise: {
+          task:
+            'Write a program that outputs exactly three lines: ' +
+            '<code class="inl">ONE</code>, <code class="inl">TWO</code>, ' +
+            'then <code class="inl">THREE</code>. Remember the END.',
+          starter: "WRITE 'ONE'\n",
+          check: (r) => {
+            if (r.errored) return { pass: false, message: r.errored };
+            const got = r.lines.map((l) => l.trim());
+            if (got.length !== 3)
+              return { pass: false, message: 'Expected three lines, got ' + got.length + '.' };
+            const want = ['ONE', 'TWO', 'THREE'];
+            for (let i = 0; i < 3; i++)
+              if (got[i] !== want[i])
+                return { pass: false, message: 'Line ' + (i + 1) + ' should be ' + want[i] + ', got "' + got[i] + '".' };
+            return { pass: true, message: 'Three lines, in order. That is a complete Natural program.' };
+          },
+        },
+      },
     ],
   },
 
@@ -201,6 +223,30 @@ export const LESSONS = [
           "DIVIDE 5 INTO #N\n" +
           "WRITE 'After DIVIDE:  ' #N\n" +
           "END",
+      },
+      {
+        title: 'Your turn: work out a total',
+        body: '<p>Declare what you need, calculate, and print the answer.</p>',
+        exercise: {
+          task:
+            'A part costs <b>12.50</b> and you are buying <b>7</b>. Compute the total ' +
+            'into a field called <code class="inl">#TOTAL</code> declared as ' +
+            '<code class="inl">(N7.2)</code>, then WRITE it. The answer should be 87.50.',
+          starter:
+            "DEFINE DATA LOCAL\n1 #PRICE (N7.2)\n1 #QTY (I4)\n1 #TOTAL (N7.2)\n" +
+            "END-DEFINE\n\nEND",
+          check: (r) => {
+            if (r.errored) return { pass: false, message: r.errored };
+            const total = r.field('#TOTAL');
+            if (total === undefined || total === null)
+              return { pass: false, message: 'No field called #TOTAL was declared.' };
+            if (total.trim() !== '87.50')
+              return { pass: false, message: '#TOTAL holds ' + total.trim() + ', expected 87.50.' };
+            if (!r.lines.length)
+              return { pass: false, message: '#TOTAL is right, but nothing was written out. Add a WRITE.' };
+            return { pass: true, message: 'Exactly 87.50, and printed. Decimal arithmetic done properly.' };
+          },
+        },
       },
     ],
   },
@@ -409,6 +455,26 @@ export const LESSONS = [
           "END-REPEAT\n" +
           "END",
       },
+      {
+        title: 'Your turn: count with a loop',
+        body: '<p>Use a loop rather than five WRITE statements.</p>',
+        exercise: {
+          task:
+            'Write a FOR loop that outputs the numbers <b>1 to 5</b>, one per line. ' +
+            'Declare the control field as <code class="inl">(I4)</code>.',
+          starter: "DEFINE DATA LOCAL\n1 #I (I4)\nEND-DEFINE\n\nEND",
+          check: (r) => {
+            if (r.errored) return { pass: false, message: r.errored };
+            const nums = r.lines.map((l) => l.trim()).filter(Boolean);
+            if (nums.length !== 5)
+              return { pass: false, message: 'Expected five lines, got ' + nums.length + '.' };
+            for (let i = 0; i < 5; i++)
+              if (nums[i] !== String(i + 1))
+                return { pass: false, message: 'Line ' + (i + 1) + ' should be ' + (i + 1) + ', got "' + nums[i] + '".' };
+            return { pass: true, message: 'Five lines from one loop. That is the point of FOR.' };
+          },
+        },
+      },
     ],
   },
 
@@ -500,6 +566,27 @@ export const LESSONS = [
           "DISPLAY COUNTRY *NUMBER\n" +
           "END-HISTOGRAM\n" +
           "END",
+      },
+      {
+        title: 'Your turn: query the file',
+        body: '<p>Now use the database for real.</p>',
+        exercise: {
+          task:
+            'Find every employee in <b>UK</b> and write each one\'s NAME. ' +
+            'There are two of them, and they should come out in name order.',
+          starter:
+            "DEFINE DATA LOCAL\n1 EMPLOYEES-VIEW VIEW OF EMPLOYEES\n2 NAME\n2 COUNTRY\n" +
+            "END-DEFINE\n\nEND",
+          check: (r) => {
+            if (r.errored) return { pass: false, message: r.errored };
+            const names = r.lines.map((l) => l.trim()).filter(Boolean);
+            if (names.length !== 2)
+              return { pass: false, message: 'Expected two employees, got ' + names.length + '.' };
+            if (names[0] !== 'GARRET' || names[1] !== 'JONES')
+              return { pass: false, message: 'Expected GARRET then JONES, got ' + names.join(', ') + '.' };
+            return { pass: true, message: 'Both UK employees, in order. You are reading a database in Natural.' };
+          },
+        },
       },
     ],
   },
@@ -751,6 +838,28 @@ export const LESSONS = [
           "END-SUBROUTINE\n" +
           "END",
       },
+      {
+        title: 'Your turn: factor the work out',
+        body: '<p>Take working code and give part of it a name.</p>',
+        exercise: {
+          task:
+            'Write a subroutine called <code class="inl">TOTAL-PAY</code> that reads every ' +
+            'employee and accumulates SALARY into <code class="inl">#TOTAL</code>. ' +
+            'PERFORM it, then WRITE the total. It should come to 322100.',
+          starter:
+            "DEFINE DATA LOCAL\n1 EMPLOYEES-VIEW VIEW OF EMPLOYEES\n2 SALARY\n" +
+            "1 #TOTAL (P11)\nEND-DEFINE\n\nEND",
+          check: (r) => {
+            if (r.errored) return { pass: false, message: r.errored };
+            const total = r.field('#TOTAL');
+            if (!total || total.trim() !== '322100')
+              return { pass: false, message: '#TOTAL holds ' + (total || 'nothing').trim() + ', expected 322100.' };
+            if (!r.text.includes('322100'))
+              return { pass: false, message: 'The total is right but was never written out.' };
+            return { pass: true, message: 'Correct, and the work lives in a named routine you could reuse.' };
+          },
+        },
+      },
     ],
   },
 
@@ -835,6 +944,26 @@ export const LESSONS = [
           "END-DEFINE\n" +
           "CALLNAT 'DOUBLE-IT' #VALUE\n" +
           "END",
+      },
+      {
+        title: 'Your turn: call a subprogram',
+        body: '<p>Use a routine somebody else wrote, through its parameter list.</p>',
+        exercise: {
+          task:
+            'Use <code class="inl">COUNT-STAFF</code> to find how many employees are in ' +
+            '<b>ESP</b>, put the answer in <code class="inl">#HOWMANY (N3)</code>, and ' +
+            'WRITE it. The answer is 1.',
+          starter: "DEFINE DATA LOCAL\n1 #HOWMANY (N3)\nEND-DEFINE\n\nEND",
+          check: (r) => {
+            if (r.errored) return { pass: false, message: r.errored };
+            const n = r.field('#HOWMANY');
+            if (!n || n.trim() !== '1')
+              return { pass: false, message: '#HOWMANY holds ' + (n || 'nothing').trim() + ', expected 1.' };
+            if (!r.lines.length)
+              return { pass: false, message: 'The count is right but nothing was written out.' };
+            return { pass: true, message: 'You called a separate object and got a result back through its parameters.' };
+          },
+        },
       },
     ],
   },
