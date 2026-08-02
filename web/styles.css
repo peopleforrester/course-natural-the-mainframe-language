@@ -180,6 +180,23 @@ code.inl {
     radial-gradient(ellipse at center, var(--screen-glow) 0%, rgba(0, 0, 0, 0) 72%);
 }
 
+/* The AID key bar, shown only while a map is on screen. */
+.aidbar {
+  flex: 0 0 auto; display: none; align-items: center; gap: 7px;
+  padding: 6px 12px; background: #0a0f16; border-top: 1px solid #141c26;
+}
+.aidlabel {
+  font-size: 10.5px; font-weight: 800; letter-spacing: .12em; color: #6e7d90;
+  margin-right: 4px;
+}
+.aidbar button {
+  font: inherit; font-size: 12px; font-weight: 700;
+  background: #1c2531; color: var(--screen-fg); border: 1px solid var(--screen-dim);
+  border-radius: 6px; padding: 4px 12px; cursor: pointer;
+  font-family: "3270", ui-monospace, Menlo, Consolas, monospace;
+}
+.aidbar button:hover { background: #26313f; }
+
 /* The Operator Information Area: the strip a 3270 uses to tell you what it is doing. */
 .oia {
   flex: 0 0 auto; display: flex; align-items: center; gap: 14px;

@@ -1,7 +1,7 @@
 // ABOUTME: The browser boundary. Wraps the interpreter as a resumable session JavaScript
 // ABOUTME: can drive one step at a time, so a suspended INPUT hands control back to the page.
 
-use natural_core::{Interpreter, Step, parse_program};
+use natural_core::{Interpreter, Library, Step, parse_program};
 use wasm_bindgen::prelude::*;
 
 /// What a single advance of the program produced.
@@ -58,6 +58,8 @@ pub struct NaturalSession {
     interpreter: Option<Interpreter>,
     /// A parse failure, reported on the first step so construction cannot throw.
     parse_error: Option<String>,
+    /// Subprogram objects added before the program runs.
+    library: Library,
 }
 
 #[wasm_bindgen]
@@ -69,11 +71,25 @@ impl NaturalSession {
             Ok(program) => NaturalSession {
                 interpreter: Some(Interpreter::new(program)),
                 parse_error: None,
+                library: Library::new(),
             },
             Err(error) => NaturalSession {
                 interpreter: None,
                 parse_error: Some(error.to_string()),
+                library: Library::new(),
             },
+        }
+    }
+
+    /// Adds a subprogram this program may CALLNAT.
+    ///
+    /// A lesson supplies its library before the first step, which mirrors a real
+    /// installation where a program and the routines it calls share a library.
+    #[wasm_bindgen(js_name = addObject)]
+    pub fn add_object(&mut self, name: &str, source: &str) {
+        self.library.add(name, source);
+        if let Some(interpreter) = self.interpreter.take() {
+            self.interpreter = Some(interpreter.with_library(self.library.clone()));
         }
     }
 

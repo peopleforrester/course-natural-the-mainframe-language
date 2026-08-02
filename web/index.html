@@ -47,6 +47,15 @@
         <div id="screen" class="screen"></div>
         <div class="crt" aria-hidden="true"></div>
       </div>
+      <!-- AID keys. A 3270 ends a screen with one of these, and the program reads which
+           one from *PF-KEY. -->
+      <div class="aidbar" id="aidbar">
+        <span class="aidlabel">END SCREEN WITH</span>
+        <button data-aid="ENTR">Enter</button>
+        <button data-aid="PF1">PF1</button>
+        <button data-aid="PF3">PF3</button>
+        <button data-aid="PF12">PF12</button>
+      </div>
       <!-- The Operator Information Area. On a real 3270 this strip is where the terminal
            tells you what it is doing; here it turns interpreter state into a teaching
            surface. See research/08-mainframe-emulators-3270.md. -->
