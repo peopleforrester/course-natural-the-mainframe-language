@@ -34,9 +34,14 @@ impl Ddm {
 }
 
 /// One stored record, positional against its DDM's field list.
+///
+/// Deletion tombstones rather than removing, so that a cursor resolved before the delete
+/// keeps pointing at the records it resolved. Removing from the middle of the vector would
+/// silently shift every later index out from under an active loop.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Record {
     pub values: Vec<Value>,
+    pub deleted: bool,
 }
 
 /// The sample database a program reads and writes.
@@ -103,7 +108,10 @@ impl Database {
                         }
                     })
                     .collect();
-                Record { values }
+                Record {
+                    values,
+                    deleted: false,
+                }
             })
             .collect();
 
@@ -124,12 +132,78 @@ impl Database {
         self.records.get(index)?.values.get(position).cloned()
     }
 
+    /// How many records the file holds, ignoring deleted ones.
+    pub fn len(&self) -> usize {
+        self.records.iter().filter(|r| !r.deleted).count()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// The index of the first live record whose field matches, by text comparison.
+    pub fn find(&self, field: &str, wanted: &str) -> Option<usize> {
+        let position = self.ddm.position(field)?;
+        self.records.iter().enumerate().find_map(|(i, record)| {
+            if record.deleted {
+                return None;
+            }
+            let matches = match record.values.get(position) {
+                Some(Value::Alpha(text)) => text.trim_end() == wanted,
+                Some(Value::Number(n)) => n.to_string() == wanted,
+                Some(Value::Logical(b)) => b.to_string().eq_ignore_ascii_case(wanted),
+                None => false,
+            };
+            matches.then_some(i)
+        })
+    }
+
+    /// Appends a record built from the values a view buffer currently holds.
+    pub fn store(&mut self, buffer: &[(String, Value)]) {
+        let values = self
+            .ddm
+            .fields
+            .iter()
+            .map(|f| {
+                buffer
+                    .iter()
+                    .find(|(name, _)| name == &f.name)
+                    .map(|(_, value)| value.clone())
+                    .unwrap_or_else(|| f.format.default_value())
+            })
+            .collect();
+        self.records.push(Record {
+            values,
+            deleted: false,
+        });
+    }
+
+    /// Writes the view buffer back over an existing record, leaving untouched fields alone.
+    pub fn update(&mut self, index: usize, buffer: &[(String, Value)]) {
+        for (name, value) in buffer {
+            if let Some(position) = self.ddm.position(name)
+                && let Some(record) = self.records.get_mut(index)
+                && let Some(slot) = record.values.get_mut(position)
+            {
+                *slot = value.clone();
+            }
+        }
+    }
+
+    pub fn delete(&mut self, index: usize) {
+        if let Some(record) = self.records.get_mut(index) {
+            record.deleted = true;
+        }
+    }
+
     /// The record order a READ produces, optionally sorted by a descriptor.
     ///
     /// Without a BY clause the records come back in stored order, which is what Natural
     /// calls physical sequence.
     pub fn order(&self, by: Option<&str>) -> Vec<usize> {
-        let mut indices: Vec<usize> = (0..self.records.len()).collect();
+        let mut indices: Vec<usize> = (0..self.records.len())
+            .filter(|i| !self.records[*i].deleted)
+            .collect();
         if let Some(descriptor) = by
             && let Some(position) = self.ddm.position(descriptor)
         {

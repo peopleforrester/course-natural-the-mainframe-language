@@ -29,6 +29,7 @@ pub struct Outcome {
     /// that an exercise asked for what it was supposed to ask for.
     pub prompts: Vec<String>,
     fields: std::collections::BTreeMap<String, Field>,
+    committed: Database,
 }
 
 impl Outcome {
@@ -45,6 +46,14 @@ impl Outcome {
     /// Every declared field name, in a stable order.
     pub fn names(&self) -> impl Iterator<Item = &str> {
         self.fields.keys().map(String::as_str)
+    }
+
+    /// The database as it stands after the last committed transaction.
+    ///
+    /// Work a program performed but never committed is deliberately absent, so a lesson
+    /// can check whether the learner remembered END TRANSACTION.
+    pub fn committed(&self) -> &Database {
+        &self.committed
     }
 }
 
@@ -85,6 +94,7 @@ pub fn run_with_input(source: &str, inputs: &[&str]) -> Result<Outcome, NaturalE
         lines,
         prompts,
         fields: interp.fields().clone(),
+        committed: interp.committed().clone(),
     })
 }
 

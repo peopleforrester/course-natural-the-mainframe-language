@@ -129,6 +129,12 @@ pub enum NaturalError {
     )]
     UnknownView { name: String, line: usize },
 
+    #[error(
+        "Line {line}: {statement} works on the record a READ or FIND loop is holding, and \
+         no loop is active here. Put it inside the loop."
+    )]
+    NoCurrentRecord { statement: String, line: usize },
+
     #[error("Line {line}: cannot divide by zero.")]
     DivisionByZero { line: usize },
 

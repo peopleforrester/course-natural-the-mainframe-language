@@ -80,6 +80,13 @@ pub struct Interpreter {
     /// One cursor per READ loop, keyed by that loop's ReadInit index so nested and
     /// repeated reads never share position.
     cursors: BTreeMap<usize, ReadCursor>,
+    /// The last committed state. Changes live in `database` until END TRANSACTION copies
+    /// them here, which is what makes forgetting the commit visibly lose work.
+    committed: Database,
+    /// The record the innermost active loop is holding, which UPDATE and DELETE act on.
+    current_record: Option<usize>,
+    /// Distinct descriptor values a HISTOGRAM is walking, keyed by loop.
+    histograms: BTreeMap<usize, HistogramCursor>,
     /// A view-binding problem found while constructing, surfaced on the first `step` so
     /// that construction can stay infallible.
     init_error: Option<NaturalError>,
@@ -98,6 +105,13 @@ struct ViewBinding {
 #[derive(Debug, Clone)]
 struct ReadCursor {
     records: Vec<usize>,
+    next: usize,
+}
+
+/// A HISTOGRAM's distinct descriptor values, each with how many records carry it.
+#[derive(Debug, Clone)]
+struct HistogramCursor {
+    values: Vec<(Value, usize)>,
     next: usize,
 }
 
@@ -131,6 +145,9 @@ impl Interpreter {
             program,
             fields,
             database: Database::sample(),
+            committed: Database::sample(),
+            current_record: None,
+            histograms: BTreeMap::new(),
             views: BTreeMap::new(),
             cursors: BTreeMap::new(),
             pc: 0,
@@ -203,6 +220,11 @@ impl Interpreter {
 
     pub fn fields(&self) -> &BTreeMap<String, Field> {
         &self.fields
+    }
+
+    /// The database as of the last committed transaction.
+    pub fn committed(&self) -> &Database {
+        &self.committed
     }
 
     /// Advances until the next observable effect. Returns [`Step::Done`] once the program
@@ -502,6 +524,101 @@ impl Interpreter {
                     }
                 }
 
+                Statement::Store { view, line } => {
+                    let binding = self.view_binding(&view, line)?;
+                    let buffer = self.view_buffer(&binding);
+                    self.database.store(&buffer);
+                }
+
+                Statement::UpdateRecord { line } => {
+                    let Some(record) = self.current_record else {
+                        return Err(NaturalError::NoCurrentRecord {
+                            statement: "UPDATE".to_string(),
+                            line,
+                        });
+                    };
+                    // Every view the program declared writes back, which for the single
+                    // view a Tier 1 program declares is simply that view's fields.
+                    let buffer: Vec<(String, Value)> = self
+                        .views
+                        .values()
+                        .flat_map(|binding| self.view_buffer(binding))
+                        .collect();
+                    self.database.update(record, &buffer);
+                }
+
+                Statement::DeleteRecord { line } => {
+                    let Some(record) = self.current_record else {
+                        return Err(NaturalError::NoCurrentRecord {
+                            statement: "DELETE".to_string(),
+                            line,
+                        });
+                    };
+                    self.database.delete(record);
+                }
+
+                // The transaction boundary. Until this runs, changes exist only in the
+                // working copy, so a program that forgets it loses its work. That is a
+                // deliberate teaching surface, not an oversight.
+                Statement::EndTransaction => self.committed = self.database.clone(),
+
+                Statement::BackoutTransaction => self.database = self.committed.clone(),
+
+                Statement::HistogramInit {
+                    view,
+                    descriptor,
+                    limit,
+                    key,
+                    exit,
+                    line,
+                } => {
+                    let binding = self.view_binding(&view, line)?;
+                    let ddm_name = binding.ddm.clone();
+                    let ddm = self
+                        .database
+                        .ddm(&ddm_name)
+                        .expect("the binding resolved this DDM");
+                    if ddm.field(&descriptor).is_none() {
+                        return Err(NaturalError::UnknownDdmField {
+                            name: descriptor.clone(),
+                            ddm: ddm_name,
+                            line,
+                        });
+                    }
+
+                    // Distinct values in ascending order, each with how many records carry
+                    // it. A histogram reads the index rather than the records themselves.
+                    let mut values: Vec<(Value, usize)> = Vec::new();
+                    for record in self.database.order(Some(&descriptor)) {
+                        let Some(value) = self.database.value(record, &descriptor) else {
+                            continue;
+                        };
+                        match values.last_mut() {
+                            Some((seen, count)) if *seen == value => *count += 1,
+                            _ => values.push((value, 1)),
+                        }
+                    }
+                    if let Some(limit) = limit {
+                        values.truncate(limit);
+                    }
+                    self.histograms
+                        .insert(key, HistogramCursor { values, next: 0 });
+                    if !self.advance_histogram(key, &descriptor) {
+                        self.pc = exit;
+                    }
+                }
+
+                Statement::HistogramNext {
+                    key,
+                    descriptor,
+                    top,
+                    ..
+                } => {
+                    if self.advance_histogram(key, &descriptor) {
+                        self.pc = top;
+                    }
+                }
+
                 Statement::Input { prompt, targets } => {
                     // Fail fast on an undeclared field rather than suspending and only
                     // discovering the problem after the learner has typed something.
@@ -548,6 +665,38 @@ impl Interpreter {
         let right = self.resolve(&condition.right)?;
 
         compare(&left, &right, condition.op, line)
+    }
+
+    /// The values a view's fields currently hold, ready to be written to the database.
+    fn view_buffer(&self, binding: &ViewBinding) -> Vec<(String, Value)> {
+        binding
+            .fields
+            .iter()
+            .filter_map(|name| {
+                self.fields
+                    .get(name)
+                    .map(|field| (name.clone(), field.value.clone()))
+            })
+            .collect()
+    }
+
+    /// Moves a histogram to its next distinct value, publishing the count in *NUMBER.
+    fn advance_histogram(&mut self, key: usize, descriptor: &str) -> bool {
+        let Some(cursor) = self.histograms.get_mut(&key) else {
+            return false;
+        };
+        let Some((value, count)) = cursor.values.get(cursor.next).cloned() else {
+            return false;
+        };
+        cursor.next += 1;
+        let processed = cursor.next;
+
+        if let Some(field) = self.fields.get_mut(descriptor) {
+            field.value = value;
+        }
+        self.set_system_variable("*NUMBER", count);
+        self.set_system_variable("*COUNTER", processed);
+        true
     }
 
     /// Evaluates a search condition against one stored record.
@@ -613,6 +762,9 @@ impl Interpreter {
 
         let processed = self.cursors.get(&key).map(|c| c.next).unwrap_or(0);
         self.set_system_variable("*COUNTER", processed);
+        // UPDATE and DELETE act on whatever was bound most recently, which is the
+        // innermost active loop's record.
+        self.current_record = Some(record);
 
         for field_name in &binding.fields {
             if let Some(value) = self.database.value(record, field_name)

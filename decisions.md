@@ -412,3 +412,32 @@ literals and therefore shifted every index. `WITH NAME = 'JONES'` parsed as a ma
 condition. The fix keeps an index-aligned vector where a literal is None rather than
 absent, and the helper is named and documented so the next positional parser does not
 repeat it. Sixteen tests failed from that single root cause.
+
+## 2026-08-01T00:00:00Z · 2.2 · Milestone M-D3: writes, transactions, HISTOGRAM. Tier 1 complete.
+
+Added STORE, UPDATE, DELETE, END TRANSACTION, BACKOUT TRANSACTION, and HISTOGRAM.
+Twenty-five tests. The Tier 1 interpreter now executes all nine modules.
+
+The transaction model is real, not cosmetic, because the outline requires forgetting
+END TRANSACTION to be a teaching surface. Changes are made to a working copy;
+END TRANSACTION copies it over the committed state and BACKOUT copies the committed state
+back. `Outcome::committed()` reports the committed state only, so a lesson can check
+whether the learner remembered to commit. Three tests pin the consequence: an uncommitted
+STORE, UPDATE, and DELETE each leave the data untouched.
+
+DELETE tombstones rather than removing. Removing from the middle of the record vector would
+shift every later index out from under a cursor that had already resolved its record set,
+which is exactly what a DELETE inside a READ loop does.
+
+Two bugs found and fixed during the work, both worth recording:
+
+- END TRANSACTION was being consumed by the bare END arm, terminating the program instead
+  of committing, because match arms are tried in order. Seven tests failed from it. The
+  guarded arm now precedes the terminator and the reason is written beside it.
+- The FIND header parser's index misalignment from the previous milestone was the same
+  class of bug, so both positional parsers now use the index-preserving helper.
+
+Verified with a capstone program that exercises every module in one run: a HISTOGRAM
+summary by country, a READ loop accumulating payroll and grading each employee with
+DECIDE FOR, a DISPLAY report, a ROUNDED raise budget, then a FIND with WHERE that updates
+the lowest-paid UK employee, commits, and re-reads to prove the change persisted.
