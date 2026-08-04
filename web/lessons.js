@@ -81,6 +81,7 @@ export const LESSONS = [
           '<p>Errors in this course name the Natural concept you missed, not a parser ' +
           'internal. Run this to see one.</p>',
         code: "WRITE 'I forgot something'",
+        expectError: true,
       },
       {
         title: 'Your turn: write a program',
@@ -465,6 +466,7 @@ export const LESSONS = [
           "ADD 1 TO #N\n" +
           "END-REPEAT\n" +
           "END",
+        expectError: true,
       },
       {
         title: 'REPEAT UNTIL',
@@ -552,7 +554,7 @@ export const LESSONS = [
           "2 COUNTRY\n" +
           "2 SALARY\n" +
           "END-DEFINE\n" +
-          "FIND EMPLOYEES-VIEW WITH COUNTRY = 'USA' WHERE SALARY > 45000 SORTED BY NAME\n" +
+          "FIND EMPLOYEES-VIEW WITH COUNTRY = 'USA' SORTED BY NAME WHERE SALARY > 45000\n" +
           "DISPLAY *COUNTER NAME SALARY\n" +
           "END-FIND\n" +
           "WRITE 'The search matched' *NUMBER 'records before the WHERE filter.'\n" +
@@ -828,14 +830,14 @@ export const LESSONS = [
           "1 #AVERAGE (N9.2)\n" +
           "END-DEFINE\n" +
           "PERFORM GATHER\n" +
-          "PERFORM REPORT\n" +
+          "PERFORM SHOW-TOTALS\n" +
           "DEFINE SUBROUTINE GATHER\n" +
           "READ EMPLOYEES-VIEW\n" +
           "ADD SALARY TO #TOTAL\n" +
           "ADD 1 TO #COUNT\n" +
           "END-READ\n" +
           "END-SUBROUTINE\n" +
-          "DEFINE SUBROUTINE REPORT\n" +
+          "DEFINE SUBROUTINE SHOW-TOTALS\n" +
           "COMPUTE ROUNDED #AVERAGE = #TOTAL / #COUNT\n" +
           "WRITE 'Employees:' #COUNT\n" +
           "WRITE 'Average:  ' #AVERAGE\n" +
@@ -852,13 +854,13 @@ export const LESSONS = [
           "DEFINE DATA LOCAL\n" +
           "1 #N (N5)\n" +
           "END-DEFINE\n" +
-          "PERFORM OUTER\n" +
-          "DEFINE SUBROUTINE OUTER\n" +
+          "PERFORM OUTER-STEP\n" +
+          "DEFINE SUBROUTINE OUTER-STEP\n" +
           "WRITE 'outer starts'\n" +
-          "PERFORM INNER\n" +
+          "PERFORM INNER-STEP\n" +
           "WRITE 'outer resumes'\n" +
           "END-SUBROUTINE\n" +
-          "DEFINE SUBROUTINE INNER\n" +
+          "DEFINE SUBROUTINE INNER-STEP\n" +
           "WRITE '  inner ran'\n" +
           "END-SUBROUTINE\n" +
           "END",
@@ -909,8 +911,8 @@ export const LESSONS = [
           '<code class="inl">DEFINE DATA PARAMETER</code> block. Those fields, in that ' +
           'order, are what a caller passes. Nothing else crosses between them.</p>' +
           '<p>This course ships a small library of subprograms you can call. ' +
-          '<code class="inl">DOUBLE-IT</code> takes a number and returns twice it; ' +
-          '<code class="inl">COUNT-STAFF</code> takes a country code and returns how many ' +
+          '<code class="inl">DOUBLEIT</code> takes a number and returns twice it; ' +
+          '<code class="inl">STAFFCNT</code> takes a country code and returns how many ' +
           'employees are there.</p>' +
           '<div class="tip">A subprogram cannot see the caller\'s other fields, even ones ' +
           'with the same name. That isolation is the reason subprograms are safe to reuse.' +
@@ -920,7 +922,7 @@ export const LESSONS = [
         title: 'See the isolation for yourself',
         body:
           '<p>This program has its own <code class="inl">#IN</code>, and so does the ' +
-          '<code class="inl">DOUBLE-IT</code> subprogram it calls. They are different ' +
+          '<code class="inl">DOUBLEIT</code> subprogram it calls. They are different ' +
           'fields that happen to share a name.</p>' +
           '<p>Run it. The subprogram doubles what was passed to it, and the caller\'s ' +
           '<code class="inl">#IN</code> comes back untouched at 999.</p>',
@@ -932,7 +934,7 @@ export const LESSONS = [
           "END-DEFINE\n" +
           "MOVE 5 TO #VALUE\n" +
           "MOVE 999 TO #IN\n" +
-          "CALLNAT 'DOUBLE-IT' #VALUE #RESULT\n" +
+          "CALLNAT 'DOUBLEIT' #VALUE #RESULT\n" +
           "WRITE 'The subprogram returned:' #RESULT\n" +
           "WRITE 'My own #IN is still: ' #IN\n" +
           "END",
@@ -949,7 +951,7 @@ export const LESSONS = [
       {
         title: 'CALLNAT passes values in and results back',
         body:
-          '<p>DOUBLE-IT is a subprogram in this course library. Its parameter block is ' +
+          '<p>DOUBLEIT is a subprogram in this course library. Its parameter block is ' +
           '<code class="inl">1 #IN (N5)</code> then <code class="inl">1 #OUT (N7)</code>, ' +
           'so the call passes two arguments in that order.</p>',
         code:
@@ -958,14 +960,14 @@ export const LESSONS = [
           "1 #RESULT (N7)\n" +
           "END-DEFINE\n" +
           "MOVE 21 TO #VALUE\n" +
-          "CALLNAT 'DOUBLE-IT' #VALUE #RESULT\n" +
+          "CALLNAT 'DOUBLEIT' #VALUE #RESULT\n" +
           "WRITE 'Twice' #VALUE 'is' #RESULT\n" +
           "END",
       },
       {
         title: 'A subprogram can do real work',
         body:
-          '<p>COUNT-STAFF reads the database on your behalf. You pass a country and get ' +
+          '<p>STAFFCNT reads the database on your behalf. You pass a country and get ' +
           'back a count, without needing to know how it searched.</p>',
         code:
           "DEFINE DATA LOCAL\n" +
@@ -973,9 +975,9 @@ export const LESSONS = [
           "1 #HOWMANY (N3)\n" +
           "END-DEFINE\n" +
           "MOVE 'USA' TO #WHERE\n" +
-          "CALLNAT 'COUNT-STAFF' #WHERE #HOWMANY\n" +
+          "CALLNAT 'STAFFCNT' #WHERE #HOWMANY\n" +
           "WRITE 'Staff in' #WHERE 'is' #HOWMANY\n" +
-          "CALLNAT 'COUNT-STAFF' 'UK' #HOWMANY\n" +
+          "CALLNAT 'STAFFCNT' 'UK' #HOWMANY\n" +
           "WRITE 'Staff in UK is' #HOWMANY\n" +
           "END",
       },
@@ -988,15 +990,16 @@ export const LESSONS = [
           "DEFINE DATA LOCAL\n" +
           "1 #VALUE (N5)\n" +
           "END-DEFINE\n" +
-          "CALLNAT 'DOUBLE-IT' #VALUE\n" +
+          "CALLNAT 'DOUBLEIT' #VALUE\n" +
           "END",
+        expectError: true,
       },
       {
         title: 'Your turn: call a subprogram',
         body: '<p>Use a routine somebody else wrote, through its parameter list.</p>',
         exercise: {
           task:
-            'Use <code class="inl">COUNT-STAFF</code> to find how many employees are in ' +
+            'Use <code class="inl">STAFFCNT</code> to find how many employees are in ' +
             '<b>ESP</b>, put the answer in <code class="inl">#HOWMANY (N3)</code>, and ' +
             'WRITE it. The answer is 1.',
           starter: "DEFINE DATA LOCAL\n1 #HOWMANY (N3)\nEND-DEFINE\n\nEND",
@@ -1032,14 +1035,14 @@ export const LESSONS = [
           "1 #NAME (A20)\n" +
           "1 #DEPT (A6)\n" +
           "END-DEFINE\n" +
-          "DEFINE MAP EMPLOYEE-ENTRY\n" +
+          "DEFINE MAP EMPENTRY\n" +
           "TEXT 2 25 'EMPLOYEE MAINTENANCE'\n" +
           "TEXT 4 25 '===================='\n" +
           "FIELD 7 10 'Name:' #NAME\n" +
           "FIELD 9 10 'Dept:' #DEPT\n" +
           "TEXT 22 10 'Enter to confirm'\n" +
           "END-MAP\n" +
-          "INPUT USING MAP EMPLOYEE-ENTRY\n" +
+          "INPUT USING MAP EMPENTRY\n" +
           "WRITE 'You entered' #NAME 'in department' #DEPT\n" +
           "END",
       },
@@ -1123,7 +1126,7 @@ export const LESSONS = [
           "TEXT 22 10 'Enter to search'\n" +
           "END-MAP\n" +
           "INPUT USING MAP SEARCH\n" +
-          "CALLNAT 'COUNT-STAFF' #WHERE #HOWMANY\n" +
+          "CALLNAT 'STAFFCNT' #WHERE #HOWMANY\n" +
           "IF #HOWMANY = 0\n" +
           "WRITE 'No staff found in' #WHERE\n" +
           "ELSE\n" +
@@ -1143,7 +1146,11 @@ export const LESSONS = [
         title: 'A validated update, committed',
         body:
           '<p>The full shape of a maintenance program: read a screen, validate it, change ' +
-          'the database, commit, and prove the change stuck.</p>',
+          'the database, commit, and prove the change stuck.</p>' +
+          '<p>Note the <code class="inl">ESCAPE BOTTOM</code> inside the NOREC clause. ' +
+          'Without it the loop still runs its one reset pass, and this program would try to ' +
+          'update a record it never found. That is the single most common way this clause ' +
+          'is written wrongly.</p>',
         code:
           "DEFINE DATA LOCAL\n" +
           "1 EMPLOYEES-VIEW VIEW OF EMPLOYEES\n" +
@@ -1152,19 +1159,20 @@ export const LESSONS = [
           "1 #WHO (A20)\n" +
           "1 #RISE (N5)\n" +
           "END-DEFINE\n" +
-          "DEFINE MAP RAISE-MAP\n" +
+          "DEFINE MAP RAISEMAP\n" +
           "TEXT 2 25 'AWARD A RAISE'\n" +
           "FIELD 6 10 'Employee:' #WHO\n" +
           "FIELD 8 10 'Amount:  ' #RISE\n" +
           "TEXT 22 10 'Try GARRET and 3000'\n" +
           "END-MAP\n" +
-          "INPUT USING MAP RAISE-MAP\n" +
+          "INPUT USING MAP RAISEMAP\n" +
           "IF #RISE = 0\n" +
           "REINPUT 'Enter an amount greater than zero.'\n" +
           "END-IF\n" +
           "FIND EMPLOYEES-VIEW WITH NAME = #WHO\n" +
           "IF NO RECORDS FOUND\n" +
           "WRITE 'No employee called' #WHO\n" +
+          "ESCAPE BOTTOM\n" +
           "END-NOREC\n" +
           "WRITE 'Before:' SALARY\n" +
           "ADD #RISE TO SALARY\n" +
@@ -1186,7 +1194,7 @@ export const LESSONS = [
  * without also having to write it.
  */
 export const LIBRARY = {
-  'DOUBLE-IT': [
+  'DOUBLEIT': [
     'DEFINE DATA PARAMETER',
     '1 #IN (N5)',
     '1 #OUT (N7)',
@@ -1195,12 +1203,12 @@ export const LIBRARY = {
     'END',
   ].join('\n'),
 
-  'COUNT-STAFF': [
-    'DEFINE DATA PARAMETER',
+  'STAFFCNT': [
+    'DEFINE DATA',
+    'PARAMETER',
     '1 #COUNTRY (A3)',
     '1 #HOWMANY (N3)',
-    'END-DEFINE',
-    'DEFINE DATA LOCAL',
+    'LOCAL',
     '1 EMPLOYEES-VIEW VIEW OF EMPLOYEES',
     '2 COUNTRY',
     'END-DEFINE',

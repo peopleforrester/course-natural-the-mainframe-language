@@ -156,6 +156,11 @@ impl Library {
             .get(&name.to_ascii_uppercase())
             .map(String::as_str)
     }
+
+    /// Every object name in the library, so a caller can check them all.
+    pub fn names(&self) -> Vec<String> {
+        self.objects.keys().cloned().collect()
+    }
 }
 
 /// A caller's execution state, kept while a subprogram runs.
@@ -954,6 +959,7 @@ impl Interpreter {
             });
         }
 
+        let name_for_error = name.to_string();
         // A failure inside a called object says which object failed, because the line
         // number alone would point at source the learner may not have written.
         let named = |error: NaturalError| NaturalError::InSubprogram {
@@ -973,8 +979,25 @@ impl Interpreter {
 
         // Values in, by position. A subprogram cannot see the caller's other fields, which
         // is the whole difference between it and an inline subroutine.
+        //
+        // Parameters pass by reference, so the callee writes through to the caller's own
+        // storage. That makes format and length a hard match rather than a conversion: an
+        // A2 argument against an A3 parameter is a different piece of memory, not a
+        // shorter one. A literal is the exception, since it has no storage to share.
         let mut incoming = Vec::with_capacity(args.len());
-        for (parameter, argument) in program.parameters.iter().zip(args) {
+        for (position, (parameter, argument)) in program.parameters.iter().zip(args).enumerate() {
+            if let Operand::Variable { name, .. } = argument {
+                let actual = self.format_of(name, line)?;
+                if actual != parameter.format {
+                    return Err(NaturalError::ParameterFormatMismatch {
+                        subprogram: name_for_error.to_string(),
+                        position: position + 1,
+                        expected: parameter.format.describe(),
+                        actual: actual.describe(),
+                        line,
+                    });
+                }
+            }
             let value = self.resolve(argument)?;
             let coerced = coerce(value, &parameter.format, &parameter.name, line)?;
             incoming.push((parameter.name.clone(), coerced));

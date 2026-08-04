@@ -76,13 +76,13 @@ fn a_subroutine_can_perform_another_subroutine() {
     let out = run(&program(
         "1 #N (N5)\n",
         "\
-PERFORM OUTER
-DEFINE SUBROUTINE OUTER
+PERFORM OUTER-ONE
+DEFINE SUBROUTINE OUTER-ONE
 WRITE 'outer in'
-PERFORM INNER
+PERFORM INNER-ONE
 WRITE 'outer out'
 END-SUBROUTINE
-DEFINE SUBROUTINE INNER
+DEFINE SUBROUTINE INNER-ONE
 WRITE 'inner'
 END-SUBROUTINE",
     ))
@@ -181,13 +181,13 @@ fn an_input_two_frames_deep_still_resumes() {
         &program(
             "1 #NAME (A10)\n",
             "\
-PERFORM OUTER
+PERFORM OUTER-ONE
 WRITE 'done'
-DEFINE SUBROUTINE OUTER
-PERFORM INNER
+DEFINE SUBROUTINE OUTER-ONE
+PERFORM INNER-ONE
 WRITE 'outer resumed'
 END-SUBROUTINE
-DEFINE SUBROUTINE INNER
+DEFINE SUBROUTINE INNER-ONE
 INPUT 'Deep?' #NAME
 WRITE 'inner got' #NAME
 END-SUBROUTINE",
@@ -237,10 +237,10 @@ fn two_subroutines_with_the_same_name_is_a_teaching_error() {
     let err = run(&program(
         "1 #N (N5)\n",
         "\
-DEFINE SUBROUTINE SAME
+DEFINE SUBROUTINE SAME-NAME
 WRITE 'a'
 END-SUBROUTINE
-DEFINE SUBROUTINE SAME
+DEFINE SUBROUTINE SAME-NAME
 WRITE 'b'
 END-SUBROUTINE",
     ))

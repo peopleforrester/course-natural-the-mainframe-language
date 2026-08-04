@@ -1,0 +1,259 @@
+{
+  "samples": [
+    {
+      "where": "1.2 1. What Natural is / Run your first program",
+      "kind": "demo",
+      "source": "WRITE 'Hello from the mainframe.'\nEND"
+    },
+    {
+      "where": "2.1 2. Your first program / WRITE and END",
+      "kind": "demo",
+      "source": "WRITE 'First line'\nWRITE 'Second line'\nEND"
+    },
+    {
+      "where": "2.2 2. Your first program / Quotes inside text",
+      "kind": "demo",
+      "source": "WRITE 'It''s a mainframe.'\nEND"
+    },
+    {
+      "where": "2.3 2. Your first program / Leave the END off and see what happens",
+      "kind": "demo-error",
+      "source": "WRITE 'I forgot something'"
+    },
+    {
+      "where": "2.4 2. Your first program / Your turn: write a program",
+      "kind": "starter",
+      "source": "WRITE 'ONE'\n"
+    },
+    {
+      "where": "3.1 3. Data and DEFINE DATA / The DEFINE DATA block",
+      "kind": "demo",
+      "source": "DEFINE DATA LOCAL\n1 #NAME (A20)\n1 #AGE (N3)\nEND-DEFINE\nMOVE 'GRACE HOPPER' TO #NAME\nMOVE 79 TO #AGE\nWRITE #NAME #AGE\nEND"
+    },
+    {
+      "where": "3.2 3. Data and DEFINE DATA / Reading the length notation correctly",
+      "kind": "demo",
+      "source": "DEFINE DATA LOCAL\n1 #BIG (N7.2)\nEND-DEFINE\nMOVE 1234567.89 TO #BIG\nWRITE 'All nine positions fit:' #BIG\nEND"
+    },
+    {
+      "where": "3.3 3. Data and DEFINE DATA / Fields have a width when printed",
+      "kind": "demo",
+      "source": "DEFINE DATA LOCAL\n1 #A (A10)\n1 #N (N5)\nEND-DEFINE\nMOVE 'LEFT' TO #A\nMOVE 42 TO #N\nWRITE '[' #A ']'\nWRITE '[' #N ']'\nEND"
+    },
+    {
+      "where": "4.1 4. Assignment and computation / MOVE, the assignment operator, and COMPUTE",
+      "kind": "demo",
+      "source": "DEFINE DATA LOCAL\n1 #PRICE (N7.2)\n1 #QTY (I4)\n1 #TOTAL (N9.2)\nEND-DEFINE\nMOVE 19.99 TO #PRICE\n#QTY := 3\nCOMPUTE #TOTAL = #PRICE * #QTY\nWRITE 'Total:' #TOTAL\nEND"
+    },
+    {
+      "where": "4.2 4. Assignment and computation / Exact decimals, not floating point",
+      "kind": "demo",
+      "source": "DEFINE DATA LOCAL\n1 #R (N5.2)\nEND-DEFINE\nCOMPUTE #R = 0.1 + 0.2\nWRITE 'Exactly:' #R\nEND"
+    },
+    {
+      "where": "4.3 4. Assignment and computation / Truncation is the default; ROUNDED opts in",
+      "kind": "demo",
+      "source": "DEFINE DATA LOCAL\n1 #CUT (N3.1)\n1 #ROUND (N3.1)\nEND-DEFINE\nCOMPUTE #CUT = 1.29\nCOMPUTE ROUNDED #ROUND = 1.29\nWRITE 'Truncated:' #CUT\nWRITE 'Rounded:  ' #ROUND\nEND"
+    },
+    {
+      "where": "4.4 4. Assignment and computation / The arithmetic verbs",
+      "kind": "demo",
+      "source": "DEFINE DATA LOCAL\n1 #N (N7.2)\nEND-DEFINE\nMOVE 100 TO #N\nADD 50 TO #N\nWRITE 'After ADD:     ' #N\nSUBTRACT 25 FROM #N\nWRITE 'After SUBTRACT:' #N\nDIVIDE 5 INTO #N\nWRITE 'After DIVIDE:  ' #N\nEND"
+    },
+    {
+      "where": "4.5 4. Assignment and computation / Your turn: work out a total",
+      "kind": "starter",
+      "source": "DEFINE DATA LOCAL\n1 #PRICE (N7.2)\n1 #QTY (I4)\n1 #TOTAL (N7.2)\nEND-DEFINE\n\nEND"
+    },
+    {
+      "where": "5.1 5. Input and decisions / INPUT reads a value",
+      "kind": "demo",
+      "source": "DEFINE DATA LOCAL\n1 #NAME (A20)\nEND-DEFINE\nINPUT 'What is your name?' #NAME\nWRITE 'Hello,' #NAME\nEND"
+    },
+    {
+      "where": "5.2 5. Input and decisions / IF, ELSE, END-IF",
+      "kind": "demo",
+      "source": "DEFINE DATA LOCAL\n1 #AGE (N3)\nEND-DEFINE\nINPUT 'How many years of service?' #AGE\nIF #AGE >= 25\nWRITE 'Eligible for the long service award.'\nELSE\nWRITE 'Not yet eligible.'\nEND-IF\nEND"
+    },
+    {
+      "where": "5.3 5. Input and decisions / DECIDE FOR: a ladder of conditions",
+      "kind": "demo",
+      "source": "DEFINE DATA LOCAL\n1 #SCORE (N3)\n1 #GRADE (A1)\nEND-DEFINE\nMOVE 87 TO #SCORE\nDECIDE FOR FIRST CONDITION\nWHEN #SCORE >= 90\nMOVE 'A' TO #GRADE\nWHEN #SCORE >= 80\nMOVE 'B' TO #GRADE\nWHEN NONE\nMOVE 'F' TO #GRADE\nEND-DECIDE\nWRITE 'Score' #SCORE 'is grade' #GRADE\nEND"
+    },
+    {
+      "where": "5.4 5. Input and decisions / DECIDE ON: branching on one value",
+      "kind": "demo",
+      "source": "DEFINE DATA LOCAL\n1 #DAY (N1)\nEND-DEFINE\nMOVE 6 TO #DAY\nDECIDE ON FIRST VALUE OF #DAY\nVALUE 1, 2, 3, 4, 5\nWRITE 'A working day.'\nVALUE 6, 7\nWRITE 'The weekend.'\nNONE VALUE\nWRITE 'Not a day of the week.'\nEND-DECIDE\nEND"
+    },
+    {
+      "where": "6.1 6. WRITE and DISPLAY / WRITE is free-format",
+      "kind": "demo",
+      "source": "DEFINE DATA LOCAL\n1 #CITY (A20)\n1 #POP (N8)\nEND-DEFINE\nMOVE 'DERBY' TO #CITY\nMOVE 261000 TO #POP\nWRITE 'City:' #CITY 'Population:' #POP\nEND"
+    },
+    {
+      "where": "6.2 6. WRITE and DISPLAY / DISPLAY builds a report",
+      "kind": "demo",
+      "source": "DEFINE DATA LOCAL\n1 #I (I4)\n1 #PRODUCT (A12)\n1 #QTY (N4)\nEND-DEFINE\nMOVE 'WIDGET' TO #PRODUCT\nFOR #I = 1 TO 3\nCOMPUTE #QTY = #I * 10\nDISPLAY #PRODUCT #QTY\nEND-FOR\nEND"
+    },
+    {
+      "where": "7.1 7. Loops / FOR counts through a range",
+      "kind": "demo",
+      "source": "DEFINE DATA LOCAL\n1 #I (I4)\nEND-DEFINE\nFOR #I = 1 TO 5\nWRITE 'Pass number' #I\nEND-FOR\nEND"
+    },
+    {
+      "where": "7.2 7. Loops / REPEAT and ESCAPE BOTTOM",
+      "kind": "demo",
+      "source": "DEFINE DATA LOCAL\n1 #N (N5)\nEND-DEFINE\nREPEAT\nADD 1 TO #N\nWRITE 'Count is' #N\nIF #N >= 4\nESCAPE BOTTOM\nEND-IF\nEND-REPEAT\nWRITE 'Out of the loop.'\nEND"
+    },
+    {
+      "where": "7.3 7. Loops / A loop with no way out",
+      "kind": "demo-error",
+      "source": "DEFINE DATA LOCAL\n1 #N (N9)\nEND-DEFINE\nREPEAT\nADD 1 TO #N\nEND-REPEAT\nEND"
+    },
+    {
+      "where": "7.4 7. Loops / REPEAT UNTIL",
+      "kind": "demo",
+      "source": "DEFINE DATA LOCAL\n1 #N (N5)\nEND-DEFINE\nREPEAT UNTIL #N >= 3\nADD 1 TO #N\nWRITE 'N is now' #N\nEND-REPEAT\nEND"
+    },
+    {
+      "where": "7.5 7. Loops / Your turn: count with a loop",
+      "kind": "starter",
+      "source": "DEFINE DATA LOCAL\n1 #I (I4)\nEND-DEFINE\n\nEND"
+    },
+    {
+      "where": "8.2 8. Reading the database / Declare a view, then READ it",
+      "kind": "demo",
+      "source": "DEFINE DATA LOCAL\n1 EMPLOYEES-VIEW VIEW OF EMPLOYEES\n2 NAME\n2 FIRST-NAME\n2 CITY\nEND-DEFINE\nREAD EMPLOYEES-VIEW BY NAME\nDISPLAY NAME FIRST-NAME CITY\nEND-READ\nEND"
+    },
+    {
+      "where": "8.3 8. Reading the database / FIND searches",
+      "kind": "demo",
+      "source": "DEFINE DATA LOCAL\n1 EMPLOYEES-VIEW VIEW OF EMPLOYEES\n2 NAME\n2 COUNTRY\n2 SALARY\nEND-DEFINE\nFIND EMPLOYEES-VIEW WITH COUNTRY = 'USA' SORTED BY NAME WHERE SALARY > 45000\nDISPLAY *COUNTER NAME SALARY\nEND-FIND\nWRITE 'The search matched' *NUMBER 'records before the WHERE filter.'\nEND"
+    },
+    {
+      "where": "8.4 8. Reading the database / When nothing matches",
+      "kind": "demo",
+      "source": "DEFINE DATA LOCAL\n1 EMPLOYEES-VIEW VIEW OF EMPLOYEES\n2 NAME\n2 CITY\nEND-DEFINE\nFIND EMPLOYEES-VIEW WITH CITY = 'ATLANTIS'\nIF NO RECORDS FOUND\nWRITE 'Nobody works in ATLANTIS.'\nEND-NOREC\nWRITE NAME\nEND-FIND\nEND"
+    },
+    {
+      "where": "8.5 8. Reading the database / HISTOGRAM counts values",
+      "kind": "demo",
+      "source": "DEFINE DATA LOCAL\n1 EMPLOYEES-VIEW VIEW OF EMPLOYEES\n2 COUNTRY\nEND-DEFINE\nHISTOGRAM EMPLOYEES-VIEW FOR COUNTRY\nDISPLAY COUNTRY *NUMBER\nEND-HISTOGRAM\nEND"
+    },
+    {
+      "where": "8.6 8. Reading the database / Your turn: query the file",
+      "kind": "starter",
+      "source": "DEFINE DATA LOCAL\n1 EMPLOYEES-VIEW VIEW OF EMPLOYEES\n2 NAME\n2 COUNTRY\nEND-DEFINE\n\nEND"
+    },
+    {
+      "where": "9.1 9. Changing the database / STORE adds a record",
+      "kind": "demo",
+      "source": "DEFINE DATA LOCAL\n1 EMPLOYEES-VIEW VIEW OF EMPLOYEES\n2 PERSONNEL-ID\n2 NAME\n2 FIRST-NAME\n2 CITY\n2 COUNTRY\n2 SALARY\nEND-DEFINE\nMOVE '99999999' TO PERSONNEL-ID\nMOVE 'TURING' TO NAME\nMOVE 'ALAN' TO FIRST-NAME\nMOVE 'LONDON' TO CITY\nMOVE 'UK' TO COUNTRY\nMOVE 71000 TO SALARY\nSTORE EMPLOYEES-VIEW\nEND TRANSACTION\nREAD EMPLOYEES-VIEW BY NAME\nDISPLAY NAME CITY SALARY\nEND-READ\nEND"
+    },
+    {
+      "where": "9.2 9. Changing the database / UPDATE changes the record you are on",
+      "kind": "demo",
+      "source": "DEFINE DATA LOCAL\n1 EMPLOYEES-VIEW VIEW OF EMPLOYEES\n2 NAME\n2 SALARY\nEND-DEFINE\nFIND EMPLOYEES-VIEW WITH NAME = 'GARRET'\nWRITE 'Before:' SALARY\nCOMPUTE SALARY = SALARY * 1.10\nUPDATE\nEND-FIND\nEND TRANSACTION\nFIND EMPLOYEES-VIEW WITH NAME = 'GARRET'\nWRITE 'After: ' SALARY\nEND-FIND\nEND"
+    },
+    {
+      "where": "9.3 9. Changing the database / Forget END TRANSACTION and lose the work",
+      "kind": "demo",
+      "source": "DEFINE DATA LOCAL\n1 EMPLOYEES-VIEW VIEW OF EMPLOYEES\n2 NAME\n2 SALARY\nEND-DEFINE\nFIND EMPLOYEES-VIEW WITH NAME = 'GARRET'\nCOMPUTE SALARY = 999999\nUPDATE\nWRITE 'In this run the field says:' SALARY\nEND-FIND\nWRITE 'But nothing was committed, so nothing persists.'\nEND"
+    },
+    {
+      "where": "9.4 9. Changing the database / DELETE and BACKOUT",
+      "kind": "demo",
+      "source": "DEFINE DATA LOCAL\n1 EMPLOYEES-VIEW VIEW OF EMPLOYEES\n2 NAME\nEND-DEFINE\nFIND EMPLOYEES-VIEW WITH NAME = 'JONES'\nDELETE\nEND-FIND\nWRITE 'Deleted, but not committed. Now backing out:'\nBACKOUT TRANSACTION\nREAD EMPLOYEES-VIEW BY NAME\nWRITE NAME\nEND-READ\nEND"
+    },
+    {
+      "where": "9.5 9. Changing the database / Capstone: put it all together",
+      "kind": "demo",
+      "source": "DEFINE DATA LOCAL\n1 EMPLOYEES-VIEW VIEW OF EMPLOYEES\n2 NAME\n2 COUNTRY\n2 SALARY\n1 #TOTAL (P11)\n1 #RAISE (N9.2)\n1 #GRADE (A8)\nEND-DEFINE\nWRITE 'STAFF REVIEW'\nHISTOGRAM EMPLOYEES-VIEW FOR COUNTRY\nWRITE COUNTRY 'has' *NUMBER 'staff'\nEND-HISTOGRAM\nREAD EMPLOYEES-VIEW BY NAME\nADD SALARY TO #TOTAL\nDECIDE FOR FIRST CONDITION\nWHEN SALARY >= 60000\nMOVE 'SENIOR' TO #GRADE\nWHEN SALARY >= 40000\nMOVE 'MID' TO #GRADE\nWHEN NONE\nMOVE 'JUNIOR' TO #GRADE\nEND-DECIDE\nDISPLAY NAME COUNTRY SALARY #GRADE\nEND-READ\nWRITE 'Total payroll:' #TOTAL\nCOMPUTE ROUNDED #RAISE = #TOTAL * 0.035\nWRITE 'Raise budget: ' #RAISE\nEND"
+    },
+    {
+      "where": "10.1 10. Validating what the operator typed / REINPUT re-asks",
+      "kind": "demo",
+      "source": "DEFINE DATA LOCAL\n1 #AGE (N3)\nEND-DEFINE\nINPUT 'Age?' #AGE\nIF #AGE < 18\nREINPUT 'You must be at least 18. Try again.'\nEND-IF\nWRITE 'Accepted:' #AGE\nEND"
+    },
+    {
+      "where": "11.1 11. Subroutines / DEFINE SUBROUTINE and PERFORM",
+      "kind": "demo",
+      "source": "DEFINE DATA LOCAL\n1 #N (N5)\nEND-DEFINE\nWRITE 'starting'\nPERFORM SAY-HELLO\nWRITE 'finished'\nDEFINE SUBROUTINE SAY-HELLO\nWRITE 'hello from the subroutine'\nEND-SUBROUTINE\nEND"
+    },
+    {
+      "where": "11.2 11. Subroutines / An inline subroutine shares the program data",
+      "kind": "demo",
+      "source": "DEFINE DATA LOCAL\n1 EMPLOYEES-VIEW VIEW OF EMPLOYEES\n2 NAME\n2 SALARY\n1 #TOTAL (P11)\n1 #COUNT (I4)\n1 #AVERAGE (N9.2)\nEND-DEFINE\nPERFORM GATHER\nPERFORM SHOW-TOTALS\nDEFINE SUBROUTINE GATHER\nREAD EMPLOYEES-VIEW\nADD SALARY TO #TOTAL\nADD 1 TO #COUNT\nEND-READ\nEND-SUBROUTINE\nDEFINE SUBROUTINE SHOW-TOTALS\nCOMPUTE ROUNDED #AVERAGE = #TOTAL / #COUNT\nWRITE 'Employees:' #COUNT\nWRITE 'Average:  ' #AVERAGE\nEND-SUBROUTINE\nEND"
+    },
+    {
+      "where": "11.3 11. Subroutines / Subroutines can call subroutines",
+      "kind": "demo",
+      "source": "DEFINE DATA LOCAL\n1 #N (N5)\nEND-DEFINE\nPERFORM OUTER-STEP\nDEFINE SUBROUTINE OUTER-STEP\nWRITE 'outer starts'\nPERFORM INNER-STEP\nWRITE 'outer resumes'\nEND-SUBROUTINE\nDEFINE SUBROUTINE INNER-STEP\nWRITE '  inner ran'\nEND-SUBROUTINE\nEND"
+    },
+    {
+      "where": "11.4 11. Subroutines / Your turn: factor the work out",
+      "kind": "starter",
+      "source": "DEFINE DATA LOCAL\n1 EMPLOYEES-VIEW VIEW OF EMPLOYEES\n2 SALARY\n1 #TOTAL (P11)\nEND-DEFINE\n\nEND"
+    },
+    {
+      "where": "12.3 12. Data areas / See the isolation for yourself",
+      "kind": "demo",
+      "source": "DEFINE DATA LOCAL\n1 #VALUE (N5)\n1 #RESULT (N7)\n1 #IN (N5)\nEND-DEFINE\nMOVE 5 TO #VALUE\nMOVE 999 TO #IN\nCALLNAT 'DOUBLEIT' #VALUE #RESULT\nWRITE 'The subprogram returned:' #RESULT\nWRITE 'My own #IN is still: ' #IN\nEND"
+    },
+    {
+      "where": "13.1 13. Subprograms and CALLNAT / CALLNAT passes values in and results back",
+      "kind": "demo",
+      "source": "DEFINE DATA LOCAL\n1 #VALUE (N5)\n1 #RESULT (N7)\nEND-DEFINE\nMOVE 21 TO #VALUE\nCALLNAT 'DOUBLEIT' #VALUE #RESULT\nWRITE 'Twice' #VALUE 'is' #RESULT\nEND"
+    },
+    {
+      "where": "13.2 13. Subprograms and CALLNAT / A subprogram can do real work",
+      "kind": "demo",
+      "source": "DEFINE DATA LOCAL\n1 #WHERE (A3)\n1 #HOWMANY (N3)\nEND-DEFINE\nMOVE 'USA' TO #WHERE\nCALLNAT 'STAFFCNT' #WHERE #HOWMANY\nWRITE 'Staff in' #WHERE 'is' #HOWMANY\nCALLNAT 'STAFFCNT' 'UK' #HOWMANY\nWRITE 'Staff in UK is' #HOWMANY\nEND"
+    },
+    {
+      "where": "13.3 13. Subprograms and CALLNAT / Get the parameter list wrong on purpose",
+      "kind": "demo-error",
+      "source": "DEFINE DATA LOCAL\n1 #VALUE (N5)\nEND-DEFINE\nCALLNAT 'DOUBLEIT' #VALUE\nEND"
+    },
+    {
+      "where": "13.4 13. Subprograms and CALLNAT / Your turn: call a subprogram",
+      "kind": "starter",
+      "source": "DEFINE DATA LOCAL\n1 #HOWMANY (N3)\nEND-DEFINE\n\nEND"
+    },
+    {
+      "where": "14.1 14. Maps: the green screen / DEFINE MAP lays out a screen",
+      "kind": "demo",
+      "source": "DEFINE DATA LOCAL\n1 #NAME (A20)\n1 #DEPT (A6)\nEND-DEFINE\nDEFINE MAP EMPENTRY\nTEXT 2 25 'EMPLOYEE MAINTENANCE'\nTEXT 4 25 '===================='\nFIELD 7 10 'Name:' #NAME\nFIELD 9 10 'Dept:' #DEPT\nTEXT 22 10 'Enter to confirm'\nEND-MAP\nINPUT USING MAP EMPENTRY\nWRITE 'You entered' #NAME 'in department' #DEPT\nEND"
+    },
+    {
+      "where": "14.2 14. Maps: the green screen / Attribute bytes make fields behave differently",
+      "kind": "demo",
+      "source": "DEFINE DATA LOCAL\n1 #USER (A10)\n1 #PIN (A4)\n1 #AMOUNT (N7)\nEND-DEFINE\nDEFINE MAP SIGN-ON\nTEXT 3 28 'SECURE TRANSFER'\nFIELD 8 10 'User:  ' #USER (AD=I)\nFIELD 10 10 'PIN:   ' #PIN (AD=N)\nFIELD 12 10 'Amount:' #AMOUNT\nEND-MAP\nINPUT USING MAP SIGN-ON\nWRITE 'User' #USER 'moved' #AMOUNT\nWRITE 'The PIN was never displayed on screen.'\nEND"
+    },
+    {
+      "where": "14.3 14. Maps: the green screen / PF keys tell the program what the operator wanted",
+      "kind": "demo",
+      "source": "DEFINE DATA LOCAL\n1 #NAME (A20)\nEND-DEFINE\nDEFINE MAP CONFIRM\nTEXT 2 25 'ADD AN EMPLOYEE'\nFIELD 6 10 'Name:' #NAME\nTEXT 22 10 'Enter to save, PF3 to cancel'\nEND-MAP\nINPUT USING MAP CONFIRM\nIF *PF-KEY = 'PF3'\nWRITE 'Cancelled. Nothing was saved.'\nELSE\nWRITE 'Would save' #NAME\nEND-IF\nEND"
+    },
+    {
+      "where": "15.1 15. Capstone: a maintenance program / Search and report",
+      "kind": "demo",
+      "source": "DEFINE DATA LOCAL\n1 EMPLOYEES-VIEW VIEW OF EMPLOYEES\n2 NAME\n2 CITY\n2 COUNTRY\n2 SALARY\n1 #WHERE (A3)\n1 #HOWMANY (N3)\n1 #TOTAL (P11)\nEND-DEFINE\nDEFINE MAP SEARCH\nTEXT 2 25 'STAFF ENQUIRY'\nFIELD 6 10 'Country code:' #WHERE\nTEXT 22 10 'Enter to search'\nEND-MAP\nINPUT USING MAP SEARCH\nCALLNAT 'STAFFCNT' #WHERE #HOWMANY\nIF #HOWMANY = 0\nWRITE 'No staff found in' #WHERE\nELSE\nPERFORM LIST-THEM\nEND-IF\nDEFINE SUBROUTINE LIST-THEM\nFIND EMPLOYEES-VIEW WITH COUNTRY = #WHERE SORTED BY NAME\nDISPLAY NAME CITY SALARY\nADD SALARY TO #TOTAL\nEND-FIND\nWRITE 'Headcount:' #HOWMANY\nWRITE 'Payroll:  ' #TOTAL\nEND-SUBROUTINE\nEND"
+    },
+    {
+      "where": "15.2 15. Capstone: a maintenance program / A validated update, committed",
+      "kind": "demo",
+      "source": "DEFINE DATA LOCAL\n1 EMPLOYEES-VIEW VIEW OF EMPLOYEES\n2 NAME\n2 SALARY\n1 #WHO (A20)\n1 #RISE (N5)\nEND-DEFINE\nDEFINE MAP RAISEMAP\nTEXT 2 25 'AWARD A RAISE'\nFIELD 6 10 'Employee:' #WHO\nFIELD 8 10 'Amount:  ' #RISE\nTEXT 22 10 'Try GARRET and 3000'\nEND-MAP\nINPUT USING MAP RAISEMAP\nIF #RISE = 0\nREINPUT 'Enter an amount greater than zero.'\nEND-IF\nFIND EMPLOYEES-VIEW WITH NAME = #WHO\nIF NO RECORDS FOUND\nWRITE 'No employee called' #WHO\nESCAPE BOTTOM\nEND-NOREC\nWRITE 'Before:' SALARY\nADD #RISE TO SALARY\nUPDATE\nEND-FIND\nEND TRANSACTION\nFIND EMPLOYEES-VIEW WITH NAME = #WHO\nWRITE 'After: ' SALARY\nEND-FIND\nEND"
+    }
+  ],
+  "library": [
+    {
+      "name": "DOUBLEIT",
+      "source": "DEFINE DATA PARAMETER\n1 #IN (N5)\n1 #OUT (N7)\nEND-DEFINE\nCOMPUTE #OUT = #IN * 2\nEND"
+    },
+    {
+      "name": "STAFFCNT",
+      "source": "DEFINE DATA\nPARAMETER\n1 #COUNTRY (A3)\n1 #HOWMANY (N3)\nLOCAL\n1 EMPLOYEES-VIEW VIEW OF EMPLOYEES\n2 COUNTRY\nEND-DEFINE\nRESET #HOWMANY\nFIND EMPLOYEES-VIEW WITH COUNTRY = #COUNTRY\nADD 1 TO #HOWMANY\nEND-FIND\nEND"
+    }
+  ]
+}

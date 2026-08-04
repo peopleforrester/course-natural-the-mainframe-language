@@ -5,7 +5,7 @@ set -uo pipefail
 
 cd "$(git rev-parse --show-toplevel)" || exit 2
 
-STAGES=5
+STAGES=6
 stage=0
 failed=()
 
@@ -41,6 +41,12 @@ run 'fmt' cargo fmt --all --check
 
 step 'Lint (cargo clippy, warnings denied)'
 run 'clippy' cargo clippy --workspace --all-targets -- -D warnings
+
+# Ahead of the tests, because tests/lesson_samples.rs runs the extracted source. Without
+# this the fixture would drift from web/lessons.js and the samples would stop being checked
+# without anything saying so.
+step 'Extract lesson code (web/lessons.js to test fixture)'
+run 'extract' node scripts/extract-lesson-code.mjs
 
 step 'Tests (cargo test --workspace)'
 run 'test' cargo test --workspace
