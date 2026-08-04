@@ -10,7 +10,7 @@
 // elements is documented and is asserted here; end-of-line trailing blanks could not be
 // established either way, so this interpreter trims them as a course convention.
 
-use natural_core::run_to_lines;
+use natural_core::{run, run_to_lines};
 
 /// Runs a program whose body is a single WRITE and returns the one output line.
 fn line(declarations: &str, body: &str) -> String {
@@ -170,4 +170,37 @@ fn trailing_blanks_at_end_of_line_are_trimmed() {
     // Mid-line padding is verified and is exercised by b3 above.
     let out = line("1 #N (A20)\n", "MOVE 'Hello' TO #N\nWRITE #N");
     assert_eq!(out, "Hello");
+}
+
+// ---- report options ----
+
+#[test]
+fn notitle_and_nohdr_are_accepted_on_write_and_display() {
+    // Natural generates a default page title unless NOTITLE is given, and NOHDR suppresses
+    // a DISPLAY's column headers on a page a WRITE causes. This environment behaves as
+    // though NOTITLE were always in effect, but a learner who writes either keyword must
+    // not be told it does not exist.
+    let out = run("WRITE NOTITLE 'plain'\nEND").expect("NOTITLE should be accepted");
+    assert_eq!(out.lines, vec!["plain"]);
+
+    let out = run("WRITE NOHDR 'also plain'\nEND").expect("NOHDR should be accepted");
+    assert_eq!(out.lines, vec!["also plain"]);
+
+    let out = run("DEFINE DATA LOCAL\n1 #N (N3)\nEND-DEFINE\nMOVE 7 TO #N\n\
+         DISPLAY NOTITLE #N\nEND")
+    .expect("NOTITLE should be accepted on DISPLAY");
+    assert!(
+        out.lines.iter().any(|l| l.contains('7')),
+        "got {:?}",
+        out.lines
+    );
+}
+
+#[test]
+fn write_still_needs_something_to_write_after_its_options() {
+    let err = run("WRITE NOTITLE\nEND").expect_err("options alone are not output");
+    assert!(
+        err.to_string().contains("SKIP"),
+        "the message should point at SKIP, got: {err}"
+    );
 }

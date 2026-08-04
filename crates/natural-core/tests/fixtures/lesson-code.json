@@ -16,12 +16,17 @@
       "source": "WRITE 'It''s a mainframe.'\nEND"
     },
     {
-      "where": "2.3 2. Your first program / Leave the END off and see what happens",
+      "where": "2.3 2. Your first program / The page title you are not seeing",
+      "kind": "demo",
+      "source": "WRITE NOTITLE 'No title above this line, and I said so.'\nEND"
+    },
+    {
+      "where": "2.4 2. Your first program / Leave the END off and see what happens",
       "kind": "demo-error",
       "source": "WRITE 'I forgot something'"
     },
     {
-      "where": "2.4 2. Your first program / Your turn: write a program",
+      "where": "2.5 2. Your first program / Your turn: write a program",
       "kind": "starter",
       "source": "WRITE 'ONE'\n"
     },
