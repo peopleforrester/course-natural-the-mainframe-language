@@ -700,7 +700,7 @@ fn parse_line(
         }),
         "DISPLAY" => {
             let mut fields = Vec::new();
-            for token in &tokens[1..] {
+            for token in strip_report_options(&tokens[1..]) {
                 match token {
                     Token::Word { text, line: l } => fields.push((normalize(text), *l)),
                     Token::Text { .. } => {
@@ -1416,7 +1416,7 @@ fn parse_declaration(
 
 fn parse_write(tokens: &[Token], line: usize) -> Result<Statement, NaturalError> {
     let mut items = Vec::new();
-    for token in &tokens[1..] {
+    for token in strip_report_options(&tokens[1..]) {
         match token {
             Token::Text { value, .. } => items.push(WriteItem::Literal(value.clone())),
             Token::Word { text, line } => items.push(WriteItem::Field {
@@ -1438,6 +1438,29 @@ fn parse_write(tokens: &[Token], line: usize) -> Result<Statement, NaturalError>
         });
     }
     Ok(Statement::Write { items })
+}
+
+/// Drops the report options that may precede a WRITE or DISPLAY output list.
+///
+/// NOTITLE suppresses the default page title, which Natural otherwise generates once per
+/// page with the page number, the time of day, and the date. NOHDR suppresses a DISPLAY's
+/// column headers on a page that a WRITE causes.
+///
+/// This environment behaves as though NOTITLE were always in effect, so both are accepted
+/// and neither changes the output. That is a deliberate divergence, disclosed in lesson 2:
+/// a title carrying the current time would make every lesson's output differ between runs,
+/// which would break the exercises and teach nothing. What matters is that a learner who
+/// writes either keyword is not told it does not exist.
+fn strip_report_options(tokens: &[Token]) -> &[Token] {
+    let mut at = 0;
+    while let Some(Token::Word { text, .. }) = tokens.get(at) {
+        if text.eq_ignore_ascii_case("NOTITLE") || text.eq_ignore_ascii_case("NOHDR") {
+            at += 1;
+        } else {
+            break;
+        }
+    }
+    &tokens[at..]
 }
 
 fn parse_move(tokens: &[Token], line: usize) -> Result<Statement, NaturalError> {

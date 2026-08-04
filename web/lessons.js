@@ -76,6 +76,23 @@ export const LESSONS = [
         code: "WRITE 'It''s a mainframe.'\nEND",
       },
       {
+        title: 'The page title you are not seeing',
+        body:
+          '<p>On a real system, the program above does not print two lines. Natural ' +
+          'generates a <b>default page title</b> at the top of every page, carrying the ' +
+          'page number, the time of day, and the date. You suppress it with ' +
+          '<code class="inl">NOTITLE</code>.</p>' +
+          '<p><code class="inl">NOHDR</code> is its companion: it suppresses a ' +
+          '<code class="inl">DISPLAY</code> statement\'s column headers on a page that a ' +
+          '<code class="inl">WRITE</code> causes. You will meet DISPLAY in module 6.</p>' +
+          '<div class="tip"><b>A divergence, stated plainly.</b> This course behaves as ' +
+          'though NOTITLE were always in effect. A title carrying the current time would ' +
+          'change every lesson\'s output on every run, which would break the exercises. ' +
+          'Both keywords are accepted so your code is real, and neither changes what you ' +
+          'see here. On a real system, expect the title unless you suppress it.</div>',
+        code: "WRITE NOTITLE 'No title above this line, and I said so.'\nEND",
+      },
+      {
         title: 'Leave the END off and see what happens',
         body:
           '<p>Errors in this course name the Natural concept you missed, not a parser ' +
@@ -88,9 +105,11 @@ export const LESSONS = [
         body: '<p>Time to write one yourself rather than running mine.</p>',
         exercise: {
           task:
-            'Write a program that outputs exactly three lines: ' +
+            'Write a program that outputs three lines: ' +
             '<code class="inl">ONE</code>, <code class="inl">TWO</code>, ' +
-            'then <code class="inl">THREE</code>. Remember the END.',
+            'then <code class="inl">THREE</code>. Remember the END. ' +
+            '(Three lines of your own output, that is. On a real system a page title ' +
+            'would sit above them unless you wrote NOTITLE.)',
           starter: "WRITE 'ONE'\n",
           check: (r) => {
             if (r.errored) return { pass: false, message: r.errored };
@@ -366,14 +385,21 @@ export const LESSONS = [
   {
     title: '6. WRITE and DISPLAY',
     lede:
-      'Natural has two output statements and they behave differently. Knowing which to ' +
-      'reach for is the whole of this module.',
+      'These are the two output statements you will use constantly, and they behave ' +
+      'differently. Knowing which to reach for is the whole of this module. ' +
+      '(PRINT is a third, for free-format output that ignores line size; it is out of ' +
+      'scope here but you will see it in real code.)',
     steps: [
       {
         title: 'WRITE is free-format',
         body:
           '<p><code class="inl">WRITE</code> puts elements on a line separated by one ' +
-          'blank, and never produces headers.</p>',
+          'blank. Each field still occupies its full defined width, so the blank is a ' +
+          'separator between columns rather than the only spacing you get.</p>' +
+          '<p>WRITE generates <b>no column headers of its own</b>. It is not header-free ' +
+          'though: if a <code class="inl">DISPLAY</code> is writing to the same report and ' +
+          'your WRITE causes a new page, that DISPLAY\'s headers appear on the new page ' +
+          'unless you write <code class="inl">NOHDR</code>.</p>',
         code:
           "DEFINE DATA LOCAL\n" +
           "1 #CITY (A20)\n" +
@@ -389,7 +415,12 @@ export const LESSONS = [
         body:
           '<p><code class="inl">DISPLAY</code> is column-oriented. It generates a header ' +
           'from each field name, underlines it, leaves one blank line, and then prints ' +
-          'rows. Alphanumeric values sit left in their column, numerics sit right.</p>',
+          'rows. Alphanumeric values sit left in their column, numerics sit right.</p>' +
+          '<p>Those headers are produced <b>once per page</b>, not once per report. A long ' +
+          'report repeats them at the top of each new page, which is what you want on ' +
+          'paper and what surprises people who expect them only at the start. Nothing here ' +
+          'is long enough to reach a page break, so you will not see it in this terminal.' +
+          '</p>',
         code:
           "DEFINE DATA LOCAL\n" +
           "1 #I (I4)\n" +
