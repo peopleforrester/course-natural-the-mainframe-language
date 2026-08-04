@@ -111,6 +111,10 @@ pub struct Interpreter {
     frames: Vec<SavedFrame>,
     /// The subprogram objects CALLNAT can reach.
     library: Library,
+    /// AID keys made active with SET KEY. A key that is not sensitized delivers ENTR, which
+    /// is why a PF3 branch does nothing until the program asks for PF3.
+    sensitized_keys: std::collections::BTreeSet<String>,
+    all_keys_sensitized: bool,
     /// A view-binding problem found while constructing, surfaced on the first `step` so
     /// that construction can stay infallible.
     init_error: Option<NaturalError>,
@@ -139,6 +143,7 @@ struct ReadCursor {
 #[derive(Debug, Clone, Default)]
 pub struct Library {
     objects: BTreeMap<String, String>,
+    maps: BTreeMap<String, String>,
 }
 
 impl Library {
@@ -157,9 +162,27 @@ impl Library {
             .map(String::as_str)
     }
 
-    /// Every object name in the library, so a caller can check them all.
+    /// Every subprogram name in the library, so a caller can check them all.
     pub fn names(&self) -> Vec<String> {
         self.objects.keys().cloned().collect()
+    }
+
+    /// Adds a map object. Its source is a layout rather than statements, which is why it
+    /// lives beside the subprograms rather than among them.
+    pub fn add_map(&mut self, name: &str, layout: &str) {
+        self.maps
+            .insert(name.to_ascii_uppercase(), layout.to_string());
+    }
+
+    pub fn map(&self, name: &str) -> Option<&str> {
+        self.maps
+            .get(&name.to_ascii_uppercase())
+            .map(String::as_str)
+    }
+
+    /// Every map name in the library.
+    pub fn map_names(&self) -> Vec<String> {
+        self.maps.keys().cloned().collect()
     }
 }
 
@@ -247,6 +270,8 @@ impl Interpreter {
             last_input_at: None,
             frames: Vec::new(),
             library: Library::new(),
+            sensitized_keys: std::collections::BTreeSet::new(),
+            all_keys_sensitized: false,
             views: BTreeMap::new(),
             cursors: BTreeMap::new(),
             pc: 0,
@@ -640,6 +665,14 @@ impl Interpreter {
 
                 Statement::Ignore => {}
 
+                Statement::SetKey { keys, line: _ } => {
+                    if keys.is_empty() {
+                        self.all_keys_sensitized = true;
+                    } else {
+                        self.sensitized_keys.extend(keys);
+                    }
+                }
+
                 Statement::ResetViewFields { view, line } => {
                     let binding = self.view_binding(&view, line)?;
                     let names: Vec<String> = binding.fields.clone();
@@ -848,15 +881,18 @@ impl Interpreter {
 
     /// Builds the screen a map defines, filling entry fields with what they already hold.
     fn build_screen(&self, name: &str, line: usize) -> Result<Screen, NaturalError> {
-        let Some(definition) = self.program.maps.iter().find(|m| m.name == name) else {
+        // A map is a separate object, so it comes from the library exactly as a subprogram
+        // does. A program can name one but can never contain one.
+        let Some(source) = self.library.map(name) else {
             return Err(NaturalError::UnknownMap {
                 name: name.to_string(),
                 line,
             });
         };
+        let elements = crate::parser::parse_map(source)?;
 
         let mut screen = Screen::blank(name);
-        for element in &definition.elements {
+        for element in &elements {
             let mut column = element.column;
 
             // A label is protected text; the operator cannot type into it.
@@ -928,8 +964,19 @@ impl Interpreter {
             self.assign(&name, coerced, 0)?;
         }
 
+        // A key the program never sensitized arrives as ENTR. Without this the PF3 branch
+        // in a lesson would appear to work while doing nothing of the kind on a real system.
+        let pressed = aid.to_ascii_uppercase();
+        let delivered = if pressed == "ENTR"
+            || self.all_keys_sensitized
+            || self.sensitized_keys.contains(&pressed)
+        {
+            pressed
+        } else {
+            "ENTR".to_string()
+        };
         if let Some(field) = self.fields.get_mut("*PF-KEY") {
-            field.value = Value::Alpha(aid.to_ascii_uppercase());
+            field.value = Value::Alpha(delivered);
         }
         self.pc = pending.resume_at;
         Ok(())

@@ -2,7 +2,35 @@
 // ABOUTME: fields with attributes, AID keys, and a screen as the thing being suspended.
 
 use natural_core::{Attribute, NaturalError, Screen, Step, Value, parse_program};
-use natural_core::{Interpreter, run_with_screen};
+use natural_core::{Interpreter, Library, run_in_library};
+
+/// The map objects these tests show.
+///
+/// A map is a separate object, so the tests register them the way a lesson does rather than
+/// embedding them in program source. No statement lets a program contain one.
+fn maps() -> Library {
+    let mut library = Library::new();
+    library.add_map(
+        "EMPENTRY",
+        "TEXT 2 5 'EMPLOYEE MAINTENANCE'\nFIELD 5 5 'Name:' #NAME\nFIELD 6 5 'Dept:' #DEPT",
+    );
+    library.add_map("M", "FIELD 7 12 'Name:' #NAME");
+    library.add_map("M2", "FIELD 5 5 'Name:' #NAME\nFIELD 6 5 'Dept:' #DEPT");
+    library.add_map("M3", "FIELD 5 5 'Salary:' #SALARY");
+    library.add_map(
+        "M4",
+        "FIELD 5 5 'Code:' #CODE (AD=I)\nFIELD 6 5 'PIN:' #PIN (AD=N)",
+    );
+    library.add_map("M5", "FIELD 3 3 'X:' #N");
+    library.add_map("M6", "FIELD 5 5 'X:' #N");
+    library.add_map("M7", "FIELD 5 5 'X:' #N");
+    library.add_map("M8", "FIELD 5 5 'X:' #NOPE");
+    library.add_map("M9", "TEXT 1 30 'TITLE'\nFIELD 3 5 'Name:' #NAME");
+    library.add_map("M10", "FIELD 3 5 'Name:' #NAME");
+    library.add_map("M11", "FIELD 3 5 'PIN:' #PIN (AD=N)");
+    library.add_map("M12", "FIELD 5 5 'B:' #B");
+    library
+}
 
 fn program(declarations: &str, body: &str) -> String {
     format!("DEFINE DATA LOCAL\n{declarations}END-DEFINE\n{body}\nEND")
@@ -22,7 +50,7 @@ REINPUT 'You must be at least 18.'
 END-IF
 WRITE 'Accepted:' #AGE",
     );
-    let out = run_with_screen(&source, &["10", "21"]).expect("should run");
+    let out = run_in_library(&source, &maps(), &["10", "21"]).expect("should run");
     assert_eq!(out.prompts, vec!["Age?", "Age?"]);
     assert!(
         out.lines.iter().any(|l| l.contains("at least 18")),
@@ -43,7 +71,7 @@ REINPUT 'Too young.'
 END-IF
 WRITE 'Accepted'",
     );
-    let out = run_with_screen(&source, &["30"]).expect("should run");
+    let out = run_in_library(&source, &maps(), &["30"]).expect("should run");
     assert_eq!(out.prompts.len(), 1);
     assert!(!out.lines.iter().any(|l| l.contains("Too young")));
 }
@@ -59,14 +87,14 @@ REINPUT 'Zero is not allowed.'
 END-IF
 WRITE 'Got' #N",
     );
-    let out = run_with_screen(&source, &["0", "0", "5"]).expect("should run");
+    let out = run_in_library(&source, &maps(), &["0", "0", "5"]).expect("should run");
     assert_eq!(out.prompts.len(), 3);
 }
 
 #[test]
 fn reinput_outside_an_input_is_a_teaching_error() {
-    let err =
-        run_with_screen(&program("1 #N (N3)\n", "REINPUT 'nope'"), &[]).expect_err("should reject");
+    let err = run_in_library(&program("1 #N (N3)\n", "REINPUT 'nope'"), &maps(), &[])
+        .expect_err("should reject");
     assert!(
         matches!(err, NaturalError::ReinputWithoutInput { .. }),
         "expected ReinputWithoutInput, got {err:?}"
@@ -82,16 +110,11 @@ DEFINE DATA LOCAL
 1 #NAME (A20)
 1 #DEPT (A6)
 END-DEFINE
-DEFINE MAP EMPENTRY
-TEXT 2 5 'EMPLOYEE MAINTENANCE'
-FIELD 5 5 'Name:' #NAME
-FIELD 6 5 'Dept:' #DEPT
-END-MAP
-INPUT USING MAP EMPENTRY
+INPUT USING MAP 'EMPENTRY'
 WRITE 'Entered' #NAME 'in' #DEPT
 END";
     let program = parse_program(source).expect("should parse");
-    let mut interp = Interpreter::new(program);
+    let mut interp = Interpreter::new(program).with_library(maps());
 
     let screen = match interp.step().expect("should suspend") {
         Step::NeedsScreen(screen) => screen,
@@ -125,12 +148,10 @@ fn a_map_field_carries_its_row_and_column() {
 DEFINE DATA LOCAL
 1 #NAME (A20)
 END-DEFINE
-DEFINE MAP M
-FIELD 7 12 'Name:' #NAME
-END-MAP
-INPUT USING MAP M
+INPUT USING MAP 'M'
 END";
-    let mut interp = Interpreter::new(parse_program(source).expect("should parse"));
+    let mut interp =
+        Interpreter::new(parse_program(source).expect("should parse")).with_library(maps());
     let Step::NeedsScreen(screen) = interp.step().expect("should suspend") else {
         panic!("expected a screen");
     };
@@ -153,14 +174,10 @@ DEFINE DATA LOCAL
 1 #NAME (A20)
 1 #DEPT (A6)
 END-DEFINE
-DEFINE MAP M
-FIELD 5 5 'Name:' #NAME
-FIELD 6 5 'Dept:' #DEPT
-END-MAP
-INPUT USING MAP M
+INPUT USING MAP 'M2'
 WRITE #NAME #DEPT
 END";
-    let out = run_with_screen(source, &["HOPPER", "TECH01"]).expect("should run");
+    let out = run_in_library(source, &maps(), &["HOPPER", "TECH01"]).expect("should run");
     assert_eq!(out.get("#NAME"), Some(&Value::Alpha("HOPPER".to_string())));
     assert_eq!(out.get("#DEPT"), Some(&Value::Alpha("TECH01".to_string())));
 }
@@ -171,12 +188,10 @@ fn a_numeric_map_field_is_marked_numeric() {
 DEFINE DATA LOCAL
 1 #SALARY (N7)
 END-DEFINE
-DEFINE MAP M
-FIELD 5 5 'Salary:' #SALARY
-END-MAP
-INPUT USING MAP M
+INPUT USING MAP 'M3'
 END";
-    let mut interp = Interpreter::new(parse_program(source).expect("should parse"));
+    let mut interp =
+        Interpreter::new(parse_program(source).expect("should parse")).with_library(maps());
     let Step::NeedsScreen(screen) = interp.step().expect("should suspend") else {
         panic!("expected a screen");
     };
@@ -191,13 +206,10 @@ DEFINE DATA LOCAL
 1 #CODE (A8)
 1 #PIN (A4)
 END-DEFINE
-DEFINE MAP M
-FIELD 5 5 'Code:' #CODE (AD=I)
-FIELD 6 5 'PIN:' #PIN (AD=N)
-END-MAP
-INPUT USING MAP M
+INPUT USING MAP 'M4'
 END";
-    let mut interp = Interpreter::new(parse_program(source).expect("should parse"));
+    let mut interp =
+        Interpreter::new(parse_program(source).expect("should parse")).with_library(maps());
     let Step::NeedsScreen(screen) = interp.step().expect("should suspend") else {
         panic!("expected a screen");
     };
@@ -219,12 +231,10 @@ fn the_screen_reports_its_model_two_dimensions() {
 DEFINE DATA LOCAL
 1 #N (A5)
 END-DEFINE
-DEFINE MAP M
-FIELD 3 3 'X:' #N
-END-MAP
-INPUT USING MAP M
+INPUT USING MAP 'M5'
 END";
-    let mut interp = Interpreter::new(parse_program(source).expect("should parse"));
+    let mut interp =
+        Interpreter::new(parse_program(source).expect("should parse")).with_library(maps());
     let Step::NeedsScreen(screen) = interp.step().expect("should suspend") else {
         panic!("expected a screen");
     };
@@ -235,23 +245,24 @@ END";
 
 #[test]
 fn the_aid_key_the_operator_pressed_is_readable() {
+    // SET KEY sensitizes PF3 so it reaches the program at all. Without it the key would
+    // arrive as ENTR; an_unsensitized_pf_key_arrives_as_enter covers that path.
     // *PF-KEY is how a program knows which key ended the screen, and it is the basis of
     // every "PF3 to exit" convention in mainframe software.
     let source = "\
 DEFINE DATA LOCAL
 1 #N (A5)
 END-DEFINE
-DEFINE MAP M
-FIELD 5 5 'X:' #N
-END-MAP
-INPUT USING MAP M
+SET KEY PF3
+INPUT USING MAP 'M6'
 IF *PF-KEY = 'PF3'
 WRITE 'Operator asked to exit.'
 ELSE
 WRITE 'Carrying on with' #N
 END-IF
 END";
-    let mut interp = Interpreter::new(parse_program(source).expect("should parse"));
+    let mut interp =
+        Interpreter::new(parse_program(source).expect("should parse")).with_library(maps());
     let Step::NeedsScreen(_) = interp.step().expect("should suspend") else {
         panic!("expected a screen");
     };
@@ -275,17 +286,69 @@ fn enter_is_the_default_aid_key() {
 DEFINE DATA LOCAL
 1 #N (A5)
 END-DEFINE
-DEFINE MAP M
-FIELD 5 5 'X:' #N
-END-MAP
-INPUT USING MAP M
+INPUT USING MAP 'M7'
 WRITE 'Key was' *PF-KEY
 END";
-    let out = run_with_screen(source, &["ZZ"]).expect("should run");
+    let out = run_in_library(source, &maps(), &["ZZ"]).expect("should run");
     assert!(
         out.lines.iter().any(|l| l.contains("ENTR")),
         "the default AID should be ENTER, got {:?}",
         out.lines
+    );
+}
+
+#[test]
+fn defining_a_map_inside_a_program_is_a_teaching_error() {
+    // The DEFINE statements are CLASS, DATA, FUNCTION, PRINTER, PROTOTYPE, SUBROUTINE,
+    // WINDOW and WORK FILE. A map is a separate object and never part of a program.
+    let err = parse_program(
+        "DEFINE DATA LOCAL\n1 #N (A5)\nEND-DEFINE\nDEFINE MAP M\nFIELD 1 1 'x' #N\nEND-MAP\nEND",
+    )
+    .expect_err("DEFINE MAP should be rejected");
+    assert!(
+        err.to_string().contains("no such statement"),
+        "the message should say the statement does not exist, got: {err}"
+    );
+    assert!(
+        err.to_string().contains("INPUT USING MAP"),
+        "the message should point at how a map is actually used, got: {err}"
+    );
+}
+
+#[test]
+fn an_unsensitized_pf_key_arrives_as_enter() {
+    // A PF key the program never asked for is delivered as ENTR, so a PF3 branch does
+    // nothing until SET KEY names the key. This is the single most surprising thing about
+    // AID keys and the reason a cancel button can silently do the wrong thing.
+    let source = "\
+DEFINE DATA LOCAL
+1 #N (A5)
+END-DEFINE
+INPUT USING MAP 'M7'
+IF *PF-KEY = 'PF3'
+WRITE 'cancelled'
+ELSE
+WRITE 'confirmed'
+END-IF
+END";
+    let mut interp =
+        Interpreter::new(parse_program(source).expect("should parse")).with_library(maps());
+    let Step::NeedsScreen(_) = interp.step().expect("should suspend") else {
+        panic!("expected a screen");
+    };
+    interp
+        .provide_screen(&[("#N".to_string(), "AB".to_string())], "PF3")
+        .expect("should accept");
+    let mut lines = Vec::new();
+    while let Ok(step) = interp.step() {
+        match step {
+            Step::Output(line) => lines.push(line),
+            _ => break,
+        }
+    }
+    assert!(
+        lines.iter().any(|l| l.contains("confirmed")),
+        "an unsensitized PF3 should arrive as ENTR, got {lines:?}"
     );
 }
 
@@ -297,9 +360,9 @@ fn using_an_undefined_map_is_a_teaching_error() {
 DEFINE DATA LOCAL
 1 #N (A5)
 END-DEFINE
-INPUT USING MAP NOSUCHMAP
+INPUT USING MAP 'NOSUCH'
 END";
-    let err = run_with_screen(source, &[]).expect_err("should reject");
+    let err = run_in_library(source, &maps(), &[]).expect_err("should reject");
     assert!(
         matches!(err, NaturalError::UnknownMap { .. }),
         "expected UnknownMap, got {err:?}"
@@ -312,12 +375,9 @@ fn a_map_field_bound_to_an_undeclared_variable_is_a_teaching_error() {
 DEFINE DATA LOCAL
 1 #N (A5)
 END-DEFINE
-DEFINE MAP M
-FIELD 5 5 'X:' #NOPE
-END-MAP
-INPUT USING MAP M
+INPUT USING MAP 'M8'
 END";
-    let err = run_with_screen(source, &[]).expect_err("should reject");
+    let err = run_in_library(source, &maps(), &[]).expect_err("should reject");
     assert!(
         matches!(err, NaturalError::UndeclaredVariable { .. }),
         "expected UndeclaredVariable, got {err:?}"
@@ -325,35 +385,17 @@ END";
 }
 
 #[test]
-fn an_unclosed_map_is_a_teaching_error() {
-    let source = "\
-DEFINE DATA LOCAL
-1 #N (A5)
-END-DEFINE
-DEFINE MAP M
-FIELD 5 5 'X:' #N
-END";
-    let err = run_with_screen(source, &[]).expect_err("should reject");
-    assert!(
-        matches!(err, NaturalError::MissingLoopEnd { .. }),
-        "expected MissingLoopEnd, got {err:?}"
-    );
-}
-
-#[test]
-fn a_screen_can_be_rendered_to_lines_for_a_terminal() {
-    // The renderer the browser uses. Text lands at its declared row and column.
+fn a_map_renders_to_a_full_24_by_80_grid() {
+    // The renderer the browser uses. Text lands at its declared row and column, and every
+    // row is a full 80 columns because a 3270 screen does not reflow.
     let source = "\
 DEFINE DATA LOCAL
 1 #NAME (A10)
 END-DEFINE
-DEFINE MAP M
-TEXT 1 30 'TITLE'
-FIELD 3 5 'Name:' #NAME
-END-MAP
-INPUT USING MAP M
+INPUT USING MAP 'M9'
 END";
-    let mut interp = Interpreter::new(parse_program(source).expect("should parse"));
+    let mut interp =
+        Interpreter::new(parse_program(source).expect("should parse")).with_library(maps());
     let Step::NeedsScreen(screen) = interp.step().expect("should suspend") else {
         panic!("expected a screen");
     };
@@ -373,13 +415,11 @@ fn a_screen_shows_values_the_fields_already_hold() {
 DEFINE DATA LOCAL
 1 #NAME (A10)
 END-DEFINE
-DEFINE MAP M
-FIELD 3 5 'Name:' #NAME
-END-MAP
 MOVE 'PRESET' TO #NAME
-INPUT USING MAP M
+INPUT USING MAP 'M10'
 END";
-    let mut interp = Interpreter::new(parse_program(source).expect("should parse"));
+    let mut interp =
+        Interpreter::new(parse_program(source).expect("should parse")).with_library(maps());
     let Step::NeedsScreen(screen) = interp.step().expect("should suspend") else {
         panic!("expected a screen");
     };
@@ -395,13 +435,11 @@ fn a_hidden_field_does_not_render_its_value() {
 DEFINE DATA LOCAL
 1 #PIN (A4)
 END-DEFINE
-DEFINE MAP M
-FIELD 3 5 'PIN:' #PIN (AD=N)
-END-MAP
 MOVE '1234' TO #PIN
-INPUT USING MAP M
+INPUT USING MAP 'M11'
 END";
-    let mut interp = Interpreter::new(parse_program(source).expect("should parse"));
+    let mut interp =
+        Interpreter::new(parse_program(source).expect("should parse")).with_library(maps());
     let Step::NeedsScreen(screen) = interp.step().expect("should suspend") else {
         panic!("expected a screen");
     };
@@ -420,14 +458,12 @@ DEFINE DATA LOCAL
 1 #A (A5)
 1 #B (A5)
 END-DEFINE
-DEFINE MAP M
-FIELD 5 5 'B:' #B
-END-MAP
 INPUT 'A?' #A
-INPUT USING MAP M
+INPUT USING MAP 'M12'
 WRITE #A #B
 END";
-    let mut interp = Interpreter::new(parse_program(source).expect("should parse"));
+    let mut interp =
+        Interpreter::new(parse_program(source).expect("should parse")).with_library(maps());
     assert!(matches!(interp.step().unwrap(), Step::NeedsInput(_)));
     interp.provide_input("ONE").unwrap();
     assert!(matches!(interp.step().unwrap(), Step::NeedsScreen(_)));

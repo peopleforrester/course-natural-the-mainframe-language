@@ -303,3 +303,45 @@ code.inl {
   .termcol { min-height: 76vh; }
   .progresswrap { display: none; }
 }
+
+/* ---- the library pane ---- */
+/* Objects a program refers to but does not contain: the subprograms it calls and the maps
+   it shows. Listing them here is what makes that separation visible to a learner. */
+.librarypane {
+  overflow-y: auto;
+  padding: 1rem 1.25rem;
+}
+
+.librarypane h3 {
+  margin: 1.25rem 0 0.25rem;
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent, #00d9ff);
+}
+
+.librarypane h3:first-child {
+  margin-top: 0;
+}
+
+.libnote {
+  margin: 0 0 0.75rem;
+  font-size: 0.85rem;
+  opacity: 0.8;
+}
+
+.libobj h4 {
+  margin: 0.75rem 0 0.25rem;
+  font-family: var(--mono, monospace);
+  font-size: 0.9rem;
+}
+
+.libobj pre {
+  margin: 0;
+  padding: 0.6rem 0.8rem;
+  overflow-x: auto;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.28);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}

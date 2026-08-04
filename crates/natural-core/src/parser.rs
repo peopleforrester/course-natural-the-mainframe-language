@@ -133,6 +133,12 @@ pub enum Statement {
     /// Do nothing, deliberately. Natural has no empty statement, so a clause that should
     /// take no action says IGNORE rather than being left blank.
     Ignore,
+    /// Sensitize AID keys. An unsensitized PF key delivers ENTR to the program, so without
+    /// this a test of *PF-KEY for PF3 can never be true.
+    SetKey {
+        keys: Vec<String>,
+        line: usize,
+    },
     /// Append the view buffer as a new record.
     Store {
         view: String,
@@ -202,13 +208,6 @@ pub struct MapElement {
     pub bound_to: Option<String>,
     /// An explicit attribute from an (AD=..) clause, if given.
     pub attribute: Option<Attribute>,
-    pub line: usize,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct MapDefinition {
-    pub name: String,
-    pub elements: Vec<MapElement>,
     pub line: usize,
 }
 
@@ -297,15 +296,9 @@ struct PendingEscape {
 /// A block whose jump target is not known until its closing keyword is reached.
 enum OpenBlock {
     /// An IF with no ELSE yet. Holds the index of its IfFalseJump.
-    If {
-        false_jump: usize,
-        line: usize,
-    },
+    If { false_jump: usize, line: usize },
     /// An IF whose ELSE has been seen. Holds the index of the Jump that skips the ELSE.
-    Else {
-        end_jump: usize,
-        line: usize,
-    },
+    Else { end_jump: usize, line: usize },
     For {
         init: usize,
         var: String,
@@ -331,9 +324,6 @@ enum OpenBlock {
     Subroutine {
         /// The jump that carries normal flow past the definition.
         skip: usize,
-        line: usize,
-    },
-    Map {
         line: usize,
     },
     Histogram {
@@ -388,7 +378,6 @@ impl OpenBlock {
             | OpenBlock::Find { line, .. }
             | OpenBlock::Histogram { line, .. }
             | OpenBlock::Subroutine { line, .. }
-            | OpenBlock::Map { line, .. }
             | OpenBlock::Decide { line, .. } => *line,
         }
     }
@@ -432,8 +421,6 @@ pub struct Program {
     pub parameters: Vec<Declaration>,
     pub views: Vec<ViewDeclaration>,
     pub statements: Vec<Statement>,
-    /// Screen layouts declared with DEFINE MAP.
-    pub maps: Vec<MapDefinition>,
     /// Where each inline subroutine's body begins. Names resolve at run time, so a
     /// subroutine may be performed before the line that defines it.
     pub subroutines: std::collections::BTreeMap<String, usize>,
@@ -523,11 +510,6 @@ pub fn parse(source: &str) -> Result<Program, NaturalError> {
                 closer: "END-SUBROUTINE".to_string(),
                 line,
             },
-            OpenBlock::Map { .. } => NaturalError::MissingLoopEnd {
-                keyword: "DEFINE MAP".to_string(),
-                closer: "END-MAP".to_string(),
-                line,
-            },
             OpenBlock::Decide { .. } => NaturalError::MissingLoopEnd {
                 keyword: "DECIDE".to_string(),
                 closer: "END-DECIDE".to_string(),
@@ -612,44 +594,17 @@ fn parse_line(
         return Ok(false);
     }
 
-    // A map definition is a layout, not executable statements, so its body is collected
-    // rather than compiled.
+    // A map is a separate object, not part of a program. There is no DEFINE MAP statement
+    // in Natural: the DEFINE statements are CLASS, DATA, FUNCTION, PRINTER, PROTOTYPE,
+    // SUBROUTINE, WINDOW, and WORK FILE. A real map is drawn in the map editor and saved
+    // under its own name, which is why a program can only ever refer to one.
     if head == "DEFINE" && is_map_definition(tokens) {
-        *mode = Mode::Body;
-        let name = match tokens.get(2) {
-            Some(Token::Word { text, .. }) => normalize(text),
-            _ => {
-                return Err(NaturalError::UnknownStatement {
-                    name: "DEFINE MAP without a name".to_string(),
-                    line,
-                });
-            }
-        };
-        program.maps.push(MapDefinition {
-            name,
-            elements: Vec::new(),
+        return Err(NaturalError::UnknownStatement {
+            name: "DEFINE MAP. There is no such statement: a map is a separate object, so \
+                   build it in the Library tab and name it with INPUT USING MAP 'NAME'"
+                .to_string(),
             line,
         });
-        blocks.push(OpenBlock::Map { line });
-        return Ok(false);
-    }
-
-    if let Some(OpenBlock::Map { line: open_line }) = blocks.last() {
-        if head == "END-MAP" {
-            blocks.pop();
-            return Ok(false);
-        }
-        // Reaching the program terminator while still inside the layout means END-MAP was
-        // forgotten. Say that, rather than complaining that END is not a map element.
-        if head == "END" {
-            return Err(NaturalError::MissingLoopEnd {
-                keyword: "DEFINE MAP".to_string(),
-                closer: "END-MAP".to_string(),
-                line: *open_line,
-            });
-        }
-        parse_map_element(&head, tokens, line, program)?;
-        return Ok(false);
     }
 
     // DEFINE SUBROUTINE is a statement, unlike DEFINE DATA which opens the data block.
@@ -734,14 +689,18 @@ fn parse_line(
             Ok(false)
         }
         "INPUT" if is_map_input(tokens) => {
-            let words: Vec<String> = tokens.iter().filter_map(word_text).collect();
-            let map = words
-                .get(3)
-                .cloned()
-                .ok_or_else(|| NaturalError::UnknownStatement {
-                    name: "INPUT USING MAP without a map name".to_string(),
+            // The map name is a constant, so it is quoted. A learner who writes it bare
+            // gets told here rather than discovering it on a real system.
+            let Some(Token::Text { value, .. }) = tokens.get(3) else {
+                return Err(NaturalError::UnknownStatement {
+                    name: "INPUT USING MAP without a quoted map name, as in \
+                           INPUT USING MAP 'EMPMAP'"
+                        .to_string(),
                     line,
-                })?;
+                });
+            };
+            validate_object_name(value, line)?;
+            let map = normalize(value);
             program
                 .statements
                 .push(Statement::InputUsingMap { map, line });
@@ -890,6 +849,19 @@ fn parse_line(
         }
         "IGNORE" => {
             program.statements.push(Statement::Ignore);
+            Ok(false)
+        }
+        "SET"
+            if matches!(tokens.get(1), Some(Token::Word { text, .. })
+            if text.eq_ignore_ascii_case("KEY")) =>
+        {
+            // Bare SET KEY sensitizes every key; naming keys sensitizes just those.
+            let keys: Vec<String> = tokens[2..]
+                .iter()
+                .filter_map(word_text)
+                .map(|w| normalize(&w))
+                .collect();
+            program.statements.push(Statement::SetKey { keys, line });
             Ok(false)
         }
         "VALUE" | "WHEN" | "NONE" => {
@@ -1732,6 +1704,37 @@ fn parse_repeat_guard(
 }
 
 /// True for `DEFINE MAP`.
+/// Parses a map object's layout into its field model.
+///
+/// A map is a separate Natural object, and on a real system it is drawn in the map editor
+/// rather than typed. It therefore has no authentic hand-written source to copy, so the
+/// layout language below is this course's own and is disclosed as such in the lessons. What
+/// it produces is the part that matters: a field model with positions, labels, bindings,
+/// and attribute bytes, which is what a Natural programmer actually reasons about.
+pub fn parse_map(source: &str) -> Result<Vec<MapElement>, NaturalError> {
+    let tokens = lexer::tokenize(source)?;
+    let mut elements = Vec::new();
+    let mut current: Vec<Token> = Vec::new();
+
+    let flush = |line: &mut Vec<Token>, elements: &mut Vec<MapElement>| {
+        let taken = std::mem::take(line);
+        let Some(Token::Word { text, line: at }) = taken.first() else {
+            return Ok(());
+        };
+        parse_map_element(&normalize(text), &taken, *at, elements)
+    };
+
+    for token in tokens {
+        if matches!(token, Token::Newline) {
+            flush(&mut current, &mut elements)?;
+        } else {
+            current.push(token);
+        }
+    }
+    flush(&mut current, &mut elements)?;
+    Ok(elements)
+}
+
 fn is_map_definition(tokens: &[Token]) -> bool {
     matches!(tokens.get(1), Some(Token::Word { text, .. })
         if text.eq_ignore_ascii_case("MAP"))
@@ -1743,13 +1746,13 @@ fn is_map_input(tokens: &[Token]) -> bool {
         if text.eq_ignore_ascii_case("USING"))
 }
 
-/// Parses one line of a map body: `TEXT row col 'label'` or
+/// Parses one line of a map's layout: `TEXT row col 'label'` or
 /// `FIELD row col 'label' #VAR [(AD=x)]`.
 fn parse_map_element(
     head: &str,
     tokens: &[Token],
     line: usize,
-    program: &mut Program,
+    elements: &mut Vec<MapElement>,
 ) -> Result<(), NaturalError> {
     let malformed = || NaturalError::UnknownStatement {
         name: "a map element. Write TEXT 2 5 'Title' or FIELD 5 5 'Name:' #NAME".to_string(),
@@ -1800,10 +1803,7 @@ fn parse_map_element(
         bound_to = None;
     }
 
-    let Some(map) = program.maps.last_mut() else {
-        return Err(malformed());
-    };
-    map.elements.push(MapElement {
+    elements.push(MapElement {
         row,
         column,
         label,

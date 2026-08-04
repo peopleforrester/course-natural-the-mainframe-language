@@ -226,29 +226,29 @@
       "source": "DEFINE DATA LOCAL\n1 #HOWMANY (N3)\nEND-DEFINE\n\nEND"
     },
     {
-      "where": "14.1 14. Maps: the green screen / DEFINE MAP lays out a screen",
+      "where": "14.1 14. Maps: the green screen / A map is its own object",
       "kind": "demo",
-      "source": "DEFINE DATA LOCAL\n1 #NAME (A20)\n1 #DEPT (A6)\nEND-DEFINE\nDEFINE MAP EMPENTRY\nTEXT 2 25 'EMPLOYEE MAINTENANCE'\nTEXT 4 25 '===================='\nFIELD 7 10 'Name:' #NAME\nFIELD 9 10 'Dept:' #DEPT\nTEXT 22 10 'Enter to confirm'\nEND-MAP\nINPUT USING MAP EMPENTRY\nWRITE 'You entered' #NAME 'in department' #DEPT\nEND"
+      "source": "DEFINE DATA LOCAL\n1 #NAME (A20)\n1 #DEPT (A6)\nEND-DEFINE\nINPUT USING MAP 'EMPENTRY'\nWRITE 'You entered' #NAME 'in department' #DEPT\nEND"
     },
     {
       "where": "14.2 14. Maps: the green screen / Attribute bytes make fields behave differently",
       "kind": "demo",
-      "source": "DEFINE DATA LOCAL\n1 #USER (A10)\n1 #PIN (A4)\n1 #AMOUNT (N7)\nEND-DEFINE\nDEFINE MAP SIGN-ON\nTEXT 3 28 'SECURE TRANSFER'\nFIELD 8 10 'User:  ' #USER (AD=I)\nFIELD 10 10 'PIN:   ' #PIN (AD=N)\nFIELD 12 10 'Amount:' #AMOUNT\nEND-MAP\nINPUT USING MAP SIGN-ON\nWRITE 'User' #USER 'moved' #AMOUNT\nWRITE 'The PIN was never displayed on screen.'\nEND"
+      "source": "DEFINE DATA LOCAL\n1 #USER (A10)\n1 #PIN (A4)\n1 #AMOUNT (N7)\nEND-DEFINE\nINPUT USING MAP 'SIGNON'\nWRITE 'User' #USER 'moved' #AMOUNT\nWRITE 'The PIN was never displayed on screen.'\nEND"
     },
     {
       "where": "14.3 14. Maps: the green screen / PF keys tell the program what the operator wanted",
       "kind": "demo",
-      "source": "DEFINE DATA LOCAL\n1 #NAME (A20)\nEND-DEFINE\nDEFINE MAP CONFIRM\nTEXT 2 25 'ADD AN EMPLOYEE'\nFIELD 6 10 'Name:' #NAME\nTEXT 22 10 'Enter to save, PF3 to cancel'\nEND-MAP\nINPUT USING MAP CONFIRM\nIF *PF-KEY = 'PF3'\nWRITE 'Cancelled. Nothing was saved.'\nELSE\nWRITE 'Would save' #NAME\nEND-IF\nEND"
+      "source": "DEFINE DATA LOCAL\n1 #NAME (A20)\nEND-DEFINE\nSET KEY PF3\nINPUT USING MAP 'CONFIRM'\nIF *PF-KEY = 'PF3'\nWRITE 'Cancelled. Nothing was saved.'\nELSE\nWRITE 'Would save' #NAME\nEND-IF\nEND"
     },
     {
       "where": "15.1 15. Capstone: a maintenance program / Search and report",
       "kind": "demo",
-      "source": "DEFINE DATA LOCAL\n1 EMPLOYEES-VIEW VIEW OF EMPLOYEES\n2 NAME\n2 CITY\n2 COUNTRY\n2 SALARY\n1 #WHERE (A3)\n1 #HOWMANY (N3)\n1 #TOTAL (P11)\nEND-DEFINE\nDEFINE MAP SEARCH\nTEXT 2 25 'STAFF ENQUIRY'\nFIELD 6 10 'Country code:' #WHERE\nTEXT 22 10 'Enter to search'\nEND-MAP\nINPUT USING MAP SEARCH\nCALLNAT 'STAFFCNT' #WHERE #HOWMANY\nIF #HOWMANY = 0\nWRITE 'No staff found in' #WHERE\nELSE\nPERFORM LIST-THEM\nEND-IF\nDEFINE SUBROUTINE LIST-THEM\nFIND EMPLOYEES-VIEW WITH COUNTRY = #WHERE SORTED BY NAME\nDISPLAY NAME CITY SALARY\nADD SALARY TO #TOTAL\nEND-FIND\nWRITE 'Headcount:' #HOWMANY\nWRITE 'Payroll:  ' #TOTAL\nEND-SUBROUTINE\nEND"
+      "source": "DEFINE DATA LOCAL\n1 EMPLOYEES-VIEW VIEW OF EMPLOYEES\n2 NAME\n2 CITY\n2 COUNTRY\n2 SALARY\n1 #WHERE (A3)\n1 #HOWMANY (N3)\n1 #TOTAL (P11)\nEND-DEFINE\nINPUT USING MAP 'SEARCH'\nCALLNAT 'STAFFCNT' #WHERE #HOWMANY\nIF #HOWMANY = 0\nWRITE 'No staff found in' #WHERE\nELSE\nPERFORM LIST-THEM\nEND-IF\nDEFINE SUBROUTINE LIST-THEM\nFIND EMPLOYEES-VIEW WITH COUNTRY = #WHERE SORTED BY NAME\nDISPLAY NAME CITY SALARY\nADD SALARY TO #TOTAL\nEND-FIND\nWRITE 'Headcount:' #HOWMANY\nWRITE 'Payroll:  ' #TOTAL\nEND-SUBROUTINE\nEND"
     },
     {
       "where": "15.2 15. Capstone: a maintenance program / A validated update, committed",
       "kind": "demo",
-      "source": "DEFINE DATA LOCAL\n1 EMPLOYEES-VIEW VIEW OF EMPLOYEES\n2 NAME\n2 SALARY\n1 #WHO (A20)\n1 #RISE (N5)\nEND-DEFINE\nDEFINE MAP RAISEMAP\nTEXT 2 25 'AWARD A RAISE'\nFIELD 6 10 'Employee:' #WHO\nFIELD 8 10 'Amount:  ' #RISE\nTEXT 22 10 'Try GARRET and 3000'\nEND-MAP\nINPUT USING MAP RAISEMAP\nIF #RISE = 0\nREINPUT 'Enter an amount greater than zero.'\nEND-IF\nFIND EMPLOYEES-VIEW WITH NAME = #WHO\nIF NO RECORDS FOUND\nWRITE 'No employee called' #WHO\nESCAPE BOTTOM\nEND-NOREC\nWRITE 'Before:' SALARY\nADD #RISE TO SALARY\nUPDATE\nEND-FIND\nEND TRANSACTION\nFIND EMPLOYEES-VIEW WITH NAME = #WHO\nWRITE 'After: ' SALARY\nEND-FIND\nEND"
+      "source": "DEFINE DATA LOCAL\n1 EMPLOYEES-VIEW VIEW OF EMPLOYEES\n2 NAME\n2 SALARY\n1 #WHO (A20)\n1 #RISE (N5)\nEND-DEFINE\nINPUT USING MAP 'RAISEMAP'\nIF #RISE = 0\nREINPUT 'Enter an amount greater than zero.'\nEND-IF\nFIND EMPLOYEES-VIEW WITH NAME = #WHO\nIF NO RECORDS FOUND\nWRITE 'No employee called' #WHO\nESCAPE BOTTOM\nEND-NOREC\nWRITE 'Before:' SALARY\nADD #RISE TO SALARY\nUPDATE\nEND-FIND\nEND TRANSACTION\nFIND EMPLOYEES-VIEW WITH NAME = #WHO\nWRITE 'After: ' SALARY\nEND-FIND\nEND"
     }
   ],
   "library": [
@@ -259,6 +259,28 @@
     {
       "name": "STAFFCNT",
       "source": "DEFINE DATA\nPARAMETER\n1 #COUNTRY (A3)\n1 #HOWMANY (N3)\nLOCAL\n1 EMPLOYEES-VIEW VIEW OF EMPLOYEES\n2 COUNTRY\nEND-DEFINE\nRESET #HOWMANY\nFIND EMPLOYEES-VIEW WITH COUNTRY = #COUNTRY\nADD 1 TO #HOWMANY\nEND-FIND\nEND"
+    }
+  ],
+  "maps": [
+    {
+      "name": "EMPENTRY",
+      "layout": "TEXT 2 25 'EMPLOYEE MAINTENANCE'\nTEXT 4 25 '===================='\nFIELD 7 10 'Name:' #NAME\nFIELD 9 10 'Dept:' #DEPT\nTEXT 22 10 'Tab between fields, Enter to transmit'"
+    },
+    {
+      "name": "SIGNON",
+      "layout": "TEXT 3 28 'SECURE TRANSFER'\nFIELD 8 10 'User:  ' #USER (AD=I)\nFIELD 10 10 'PIN:   ' #PIN (AD=N)\nFIELD 12 10 'Amount:' #AMOUNT"
+    },
+    {
+      "name": "CONFIRM",
+      "layout": "TEXT 2 25 'ADD AN EMPLOYEE'\nFIELD 6 10 'Name:' #NAME\nTEXT 22 10 'Enter to save, PF3 to cancel'"
+    },
+    {
+      "name": "SEARCH",
+      "layout": "TEXT 2 25 'STAFF ENQUIRY'\nFIELD 6 10 'Country code:' #WHERE\nTEXT 22 10 'Enter to search'"
+    },
+    {
+      "name": "RAISEMAP",
+      "layout": "TEXT 2 25 'AWARD A RAISE'\nFIELD 6 10 'Employee:' #WHO\nFIELD 8 10 'Amount:  ' #RISE\nTEXT 22 10 'Try GARRET and 3000'"
     }
   ]
 }
