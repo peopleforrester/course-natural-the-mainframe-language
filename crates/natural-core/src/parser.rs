@@ -451,6 +451,9 @@ pub fn normalize(name: &str) -> String {
 enum Mode {
     /// Before any executable statement, where a DEFINE DATA block may still open.
     Preamble,
+    /// The object's single DEFINE DATA has closed. A second one is an error rather than a
+    /// second block, because PARAMETER and LOCAL are clauses of the one statement.
+    AfterDefine,
     /// Inside a DEFINE DATA LOCAL block.
     DataBlock,
     /// Inside a DEFINE DATA PARAMETER block, whose fields become the call interface.
@@ -586,9 +589,18 @@ fn parse_line(
 
     if matches!(*mode, Mode::DataBlock | Mode::ParameterBlock) {
         if head == "END-DEFINE" {
-            // Back to the preamble rather than the body, because a program may declare a
-            // PARAMETER block and a LOCAL block one after the other.
-            *mode = Mode::Preamble;
+            // An object has exactly one DEFINE DATA, so this closes the only one there is.
+            *mode = Mode::AfterDefine;
+            return Ok(false);
+        }
+        // PARAMETER and LOCAL are clauses within the block, so meeting one switches which
+        // clause the following declarations belong to rather than opening a new statement.
+        if head == "PARAMETER" {
+            *mode = Mode::ParameterBlock;
+            return Ok(false);
+        }
+        if head == "LOCAL" {
+            *mode = Mode::DataBlock;
             return Ok(false);
         }
         // Reaching the end of the program while still inside the block means END-DEFINE
@@ -661,6 +673,9 @@ fn parse_line(
     }
 
     if head == "DEFINE" {
+        if *mode == Mode::AfterDefine {
+            return Err(NaturalError::RepeatedDefineData { line });
+        }
         if *mode != Mode::Preamble {
             return Err(NaturalError::DefineDataNotFirst { line });
         }
@@ -988,11 +1003,12 @@ fn parse_line(
         "CALLNAT" => {
             let Some(Token::Text { value, .. }) = tokens.get(1) else {
                 return Err(NaturalError::UnknownStatement {
-                    name: "CALLNAT without a subprogram name, as in CALLNAT 'DOUBLE-IT' #A"
+                    name: "CALLNAT without a subprogram name, as in CALLNAT 'DOUBLEIT' #A"
                         .to_string(),
                     line,
                 });
             };
+            validate_object_name(value, line)?;
             let mut args = Vec::new();
             for token in &tokens[2..] {
                 if matches!(token, Token::Newline) {
@@ -1514,6 +1530,50 @@ fn is_label_char(c: char) -> bool {
     c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '#'
 }
 
+/// The reserved keywords, one per line, with comment lines describing where they came from.
+const RESERVED_KEYWORDS: &str = include_str!("../data/reserved-keywords.txt");
+
+/// True when `name` is a Natural reserved keyword.
+pub fn is_reserved_keyword(name: &str) -> bool {
+    let name = normalize(name);
+    RESERVED_KEYWORDS
+        .lines()
+        .any(|line| !line.starts_with('#') && line == name)
+}
+
+/// Checks a name that will be saved as a library object.
+///
+/// "The name of a Natural object can be 1 to 8 characters ... the first character must be
+/// an upper-case alphabetical character, a number sign (#), or a plus sign (+)." A DDM is
+/// the documented exception at 1 to 32, which is why a view name never comes through here.
+fn validate_object_name(name: &str, line: usize) -> Result<(), NaturalError> {
+    let name = normalize(name);
+    let length = name.chars().count();
+    if length > 8 {
+        return Err(NaturalError::ObjectNameTooLong { name, length, line });
+    }
+    let first = name.chars().next().unwrap_or(' ');
+    if !(first.is_ascii_uppercase() || first == '#' || first == '+') {
+        return Err(NaturalError::UnknownStatement {
+            name: format!(
+                "'{name}' as an object name. The first character must be a letter, a number \
+                 sign, or a plus sign"
+            ),
+            line,
+        });
+    }
+    if length < 2 && (first == '#' || first == '+') {
+        return Err(NaturalError::UnknownStatement {
+            name: format!(
+                "'{name}' as an object name. A name starting with the first character \
+                 '{first}' needs at least one more character"
+            ),
+            line,
+        });
+    }
+    Ok(())
+}
+
 /// Records a loop's label so reference notation can resolve it later.
 fn register_label(program: &mut Program, label: &Option<String>, key: usize) {
     if let Some(name) = label {
@@ -1751,13 +1811,23 @@ fn is_subroutine_definition(tokens: &[Token]) -> bool {
 }
 
 fn subroutine_name(tokens: &[Token], line: usize) -> Result<String, NaturalError> {
-    match tokens.get(2) {
-        Some(Token::Word { text, .. }) => Ok(normalize(text)),
-        _ => Err(NaturalError::UnknownStatement {
+    let Some(Token::Word { text, .. }) = tokens.get(2) else {
+        return Err(NaturalError::UnknownStatement {
             name: "DEFINE SUBROUTINE without a name".to_string(),
             line,
-        }),
+        });
+    };
+    let name = normalize(text);
+    // A subroutine name may run to 32 characters, unlike an object name, but it still
+    // cannot be a word the compiler already means something by.
+    if is_reserved_keyword(&name) {
+        return Err(NaturalError::ReservedWordAsName {
+            name,
+            a_what: "a subroutine".to_string(),
+            line,
+        });
     }
+    Ok(name)
 }
 
 /// True for `END TRANSACTION`, which is a statement rather than the program terminator.

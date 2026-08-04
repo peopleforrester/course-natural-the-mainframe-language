@@ -14,11 +14,11 @@ END";
 
 /// A subprogram that reports how many employees a country has.
 const COUNT_STAFF: &str = "\
-DEFINE DATA PARAMETER
+DEFINE DATA
+PARAMETER
 1 #COUNTRY (A3)
 1 #HOWMANY (N3)
-END-DEFINE
-DEFINE DATA LOCAL
+LOCAL
 1 EMPLOYEES-VIEW VIEW OF EMPLOYEES
 2 COUNTRY
 END-DEFINE
@@ -30,8 +30,8 @@ END";
 
 fn library() -> Library {
     let mut lib = Library::new();
-    lib.add("DOUBLE-IT", DOUBLE_IT);
-    lib.add("COUNT-STAFF", COUNT_STAFF);
+    lib.add("DOUBLEIT", DOUBLE_IT);
+    lib.add("STAFFCNT", COUNT_STAFF);
     lib
 }
 
@@ -43,7 +43,7 @@ DEFINE DATA LOCAL
 1 #RESULT (N7)
 END-DEFINE
 MOVE 21 TO #VALUE
-CALLNAT 'DOUBLE-IT' #VALUE #RESULT
+CALLNAT 'DOUBLEIT' #VALUE #RESULT
 WRITE 'Doubled:' #RESULT
 END";
     let out = run_in_library(source, &library(), &[]).expect("should run");
@@ -62,7 +62,7 @@ DEFINE DATA LOCAL
 END-DEFINE
 MOVE 5 TO #VALUE
 MOVE 999 TO #IN
-CALLNAT 'DOUBLE-IT' #VALUE #RESULT
+CALLNAT 'DOUBLEIT' #VALUE #RESULT
 WRITE 'Result:' #RESULT
 WRITE 'Caller #IN untouched:' #IN
 END";
@@ -81,7 +81,7 @@ DEFINE DATA LOCAL
 1 #COUNT (N3)
 END-DEFINE
 MOVE 'USA' TO #WHERE
-CALLNAT 'COUNT-STAFF' #WHERE #COUNT
+CALLNAT 'STAFFCNT' #WHERE #COUNT
 WRITE 'USA staff:' #COUNT
 END";
     let out = run_in_library(source, &library(), &[]).expect("should run");
@@ -93,11 +93,13 @@ fn a_subprogram_may_be_called_repeatedly_with_different_values() {
     let source = "\
 DEFINE DATA LOCAL
 1 #I (I4)
+1 #VALUE (N5)
 1 #RESULT (N7)
 1 #TOTAL (N9)
 END-DEFINE
 FOR #I = 1 TO 4
-CALLNAT 'DOUBLE-IT' #I #RESULT
+MOVE #I TO #VALUE
+CALLNAT 'DOUBLEIT' #VALUE #RESULT
 ADD #RESULT TO #TOTAL
 END-FOR
 WRITE 'Sum of doubles:' #TOTAL
@@ -113,7 +115,7 @@ fn a_literal_may_be_passed_as_a_parameter() {
 DEFINE DATA LOCAL
 1 #COUNT (N3)
 END-DEFINE
-CALLNAT 'COUNT-STAFF' 'UK' #COUNT
+CALLNAT 'STAFFCNT' 'UK ' #COUNT
 WRITE 'UK staff:' #COUNT
 END";
     let out = run_in_library(source, &library(), &[]).expect("should run");
@@ -124,17 +126,19 @@ END";
 fn a_subprogram_can_call_another_subprogram() {
     let mut lib = library();
     lib.add(
-        "QUADRUPLE",
+        "QUADRUPL",
         "\
-DEFINE DATA PARAMETER
+DEFINE DATA
+PARAMETER
 1 #N (N5)
 1 #R (N7)
+LOCAL
+1 #ONCE (N5)
+1 #TWICE (N7)
 END-DEFINE
-DEFINE DATA LOCAL
-1 #ONCE (N7)
-END-DEFINE
-CALLNAT 'DOUBLE-IT' #N #ONCE
-CALLNAT 'DOUBLE-IT' #ONCE #R
+CALLNAT 'DOUBLEIT' #N #TWICE
+MOVE #TWICE TO #ONCE
+CALLNAT 'DOUBLEIT' #ONCE #R
 END",
     );
     let source = "\
@@ -143,7 +147,7 @@ DEFINE DATA LOCAL
 1 #R (N7)
 END-DEFINE
 MOVE 3 TO #V
-CALLNAT 'QUADRUPLE' #V #R
+CALLNAT 'QUADRUPL' #V #R
 END";
     let out = run_in_library(source, &lib, &[]).expect("should run");
     assert_eq!(out.get("#R"), Some(&Value::Number(Decimal::from(12))));
@@ -201,7 +205,7 @@ END";
 
 #[test]
 fn calling_an_unknown_subprogram_is_a_teaching_error() {
-    let source = "CALLNAT 'NO-SUCH-THING'\nEND";
+    let source = "CALLNAT 'NOSUCH'\nEND";
     let err = run_in_library(source, &library(), &[]).expect_err("should reject");
     assert!(
         matches!(err, NaturalError::UnknownSubprogram { .. }),
@@ -215,7 +219,7 @@ fn passing_the_wrong_number_of_parameters_is_a_teaching_error() {
 DEFINE DATA LOCAL
 1 #V (N5)
 END-DEFINE
-CALLNAT 'DOUBLE-IT' #V
+CALLNAT 'DOUBLEIT' #V
 END";
     let err = run_in_library(source, &library(), &[]).expect_err("should reject");
     assert!(

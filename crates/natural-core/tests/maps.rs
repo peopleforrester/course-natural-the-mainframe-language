@@ -82,12 +82,12 @@ DEFINE DATA LOCAL
 1 #NAME (A20)
 1 #DEPT (A6)
 END-DEFINE
-DEFINE MAP EMPLOYEE-ENTRY
+DEFINE MAP EMPENTRY
 TEXT 2 5 'EMPLOYEE MAINTENANCE'
 FIELD 5 5 'Name:' #NAME
 FIELD 6 5 'Dept:' #DEPT
 END-MAP
-INPUT USING MAP EMPLOYEE-ENTRY
+INPUT USING MAP EMPENTRY
 WRITE 'Entered' #NAME 'in' #DEPT
 END";
     let program = parse_program(source).expect("should parse");
@@ -100,7 +100,7 @@ END";
 
     // Protected text and unprotected input fields are distinct, which is the whole point
     // of the 3270 attribute byte.
-    assert_eq!(screen.name, "EMPLOYEE-ENTRY");
+    assert_eq!(screen.name, "EMPENTRY");
     let labels: Vec<&str> = screen
         .fields
         .iter()
