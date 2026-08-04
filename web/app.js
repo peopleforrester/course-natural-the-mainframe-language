@@ -64,12 +64,18 @@ function setOia(system, message) {
   els.oiaMsg.textContent = message || '';
 }
 
-const PANES = ['editor', 'terminal', 'library'];
+// The pane element ids do not all follow from the tab name (the terminal's is "termpane"),
+// so the mapping is written out rather than derived.
+const PANES = [
+  { name: 'editor', pane: 'editorpane' },
+  { name: 'terminal', pane: 'termpane' },
+  { name: 'library', pane: 'librarypane' },
+];
 
 function showPane(which) {
-  for (const pane of PANES) {
-    document.getElementById(pane + 'pane').hidden = which !== pane;
-    document.getElementById('tab' + pane).classList.toggle('active', which === pane);
+  for (const { name, pane } of PANES) {
+    document.getElementById(pane).hidden = which !== name;
+    document.getElementById('tab' + name).classList.toggle('active', which === name);
   }
 }
 
