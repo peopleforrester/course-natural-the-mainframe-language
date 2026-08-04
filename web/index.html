@@ -44,6 +44,7 @@
       <div class="termbar">
         <button class="tab active" data-pane="editor" id="tabeditor">EDITOR</button>
         <button class="tab" data-pane="terminal" id="tabterminal">TERMINAL</button>
+        <button class="tab" data-pane="library" id="tablibrary">LIBRARY</button>
         <div class="spacer"></div>
         <button id="runbtn" class="act">Run &#9654;</button>
         <button id="resetbtn" class="act ghost">Reset</button>
@@ -60,6 +61,13 @@
         <textarea id="editor" spellcheck="false" autocapitalize="off"
                   autocorrect="off" wrap="off"
                   aria-label="Natural source editor"></textarea>
+      </div>
+
+      <!-- The library. A Natural program never stands alone: the subprograms it calls and
+           the maps it shows are separate objects saved beside it under their own names.
+           Showing them here is what makes that separation visible rather than asserted. -->
+      <div class="pane librarypane" id="librarypane" hidden>
+        <div id="librarylist"></div>
       </div>
 
       <div class="pane termpane" id="termpane" hidden>

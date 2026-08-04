@@ -88,6 +88,21 @@ impl NaturalSession {
     #[wasm_bindgen(js_name = addObject)]
     pub fn add_object(&mut self, name: &str, source: &str) {
         self.library.add(name, source);
+        self.rebind_library();
+    }
+
+    /// Adds a map object to the library.
+    ///
+    /// A map is a separate object from the program that shows it. On a real system it is
+    /// drawn in the map editor and saved under its own name, which is why a program can
+    /// only ever refer to one and never contain one.
+    #[wasm_bindgen(js_name = addMap)]
+    pub fn add_map(&mut self, name: &str, layout: &str) {
+        self.library.add_map(name, layout);
+        self.rebind_library();
+    }
+
+    fn rebind_library(&mut self) {
         if let Some(interpreter) = self.interpreter.take() {
             self.interpreter = Some(interpreter.with_library(self.library.clone()));
         }

@@ -46,6 +46,12 @@ fn load() -> (Vec<Sample>, Library) {
             &json_string(&object, "source"),
         );
     }
+    for object in json_array(&raw, "maps") {
+        library.add_map(
+            &json_string(&object, "name"),
+            &json_string(&object, "layout"),
+        );
+    }
     (samples, library)
 }
 
@@ -117,6 +123,24 @@ fn every_exercise_starter_is_at_least_well_formed() {
     assert!(
         failures.is_empty(),
         "{} exercise starter(s) fail for the wrong reason:\n{}",
+        failures.len(),
+        failures.join("\n")
+    );
+}
+
+#[test]
+fn every_map_object_parses() {
+    let (_, library) = load();
+    let mut failures = Vec::new();
+    for name in library.map_names() {
+        let layout = library.map(&name).expect("just listed");
+        if let Err(error) = natural_core::parse_map(layout) {
+            failures.push(format!("  {name}\n    {error}"));
+        }
+    }
+    assert!(
+        failures.is_empty(),
+        "{} map object(s) do not parse:\n{}",
         failures.len(),
         failures.join("\n")
     );

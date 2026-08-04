@@ -9,7 +9,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '..');
 const out = resolve(root, 'crates/natural-core/tests/fixtures/lesson-code.json');
 
-const { LESSONS, LIBRARY } = await import(resolve(root, 'web/lessons.js'));
+const { LESSONS, LIBRARY, MAPS } = await import(resolve(root, 'web/lessons.js'));
 
 const samples = [];
 LESSONS.forEach((lesson, li) => {
@@ -36,9 +36,10 @@ LESSONS.forEach((lesson, li) => {
 });
 
 const library = Object.entries(LIBRARY ?? {}).map(([name, source]) => ({ name, source }));
+const maps = Object.entries(MAPS ?? {}).map(([name, layout]) => ({ name, layout }));
 
 mkdirSync(dirname(out), { recursive: true });
-writeFileSync(out, `${JSON.stringify({ samples, library }, null, 2)}\n`);
+writeFileSync(out, `${JSON.stringify({ samples, library, maps }, null, 2)}\n`);
 process.stdout.write(
-  `extracted ${samples.length} samples and ${library.length} library objects\n`,
+  `extracted ${samples.length} samples, ${library.length} subprograms, ${maps.length} maps\n`,
 );

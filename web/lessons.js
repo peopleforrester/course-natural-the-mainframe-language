@@ -1051,53 +1051,59 @@ export const LESSONS = [
   {
     title: '14. Maps: the green screen',
     lede:
-      'A map is a screen layout. Reading one suspends the program exactly as INPUT does, ' +
-      'except what is suspended is a whole panel of fields.',
+      'A map is a screen layout, and it is a separate object from the program that shows ' +
+      'it. Reading one suspends the program exactly as INPUT does, except what is ' +
+      'suspended is a whole panel of fields.',
     steps: [
       {
-        title: 'DEFINE MAP lays out a screen',
+        title: 'A map is its own object',
         body:
-          '<p><code class="inl">TEXT</code> places a label at a row and column. ' +
+          '<p>There is no statement that defines a map inside a program. The DEFINE ' +
+          'statements in Natural are DATA, SUBROUTINE, WINDOW, PRINTER, WORK FILE, ' +
+          'FUNCTION, PROTOTYPE and CLASS. A map is none of them.</p>' +
+          '<p>You build a map in the <b>map editor</b>, save it under its own name, and a ' +
+          'program then names it as a quoted constant: ' +
+          '<code class="inl">INPUT USING MAP \'EMPENTRY\'</code>. The quotes matter, ' +
+          'because the name is a constant.</p>' +
+          '<p>Open the <b>Library</b> tab to see EMPENTRY\'s layout. ' +
+          '<code class="inl">TEXT</code> places a label at a row and column; ' +
           '<code class="inl">FIELD</code> places a label followed by an entry field bound ' +
-          'to one of your variables. Run this and the terminal shows the panel.</p>' +
-          '<p>Type a value for each field and press Enter to move through them.</p>',
+          'to one of your variables.</p>' +
+          '<p><b>Tab</b> moves between the entry fields. <b>Enter</b> transmits the whole ' +
+          'screen back to the program. On a 3270 those are different actions, and confusing ' +
+          'them is the classic first mistake.</p>' +
+          '<div class="tip"><b>Ours, not Natural\'s.</b> The TEXT and FIELD layout language ' +
+          'is this course\'s own. A real map is drawn on screen and stored in a form you ' +
+          'would never type, so there is nothing authentic to copy. Everything on the ' +
+          'program side is real.</div>',
         code:
           "DEFINE DATA LOCAL\n" +
           "1 #NAME (A20)\n" +
           "1 #DEPT (A6)\n" +
           "END-DEFINE\n" +
-          "DEFINE MAP EMPENTRY\n" +
-          "TEXT 2 25 'EMPLOYEE MAINTENANCE'\n" +
-          "TEXT 4 25 '===================='\n" +
-          "FIELD 7 10 'Name:' #NAME\n" +
-          "FIELD 9 10 'Dept:' #DEPT\n" +
-          "TEXT 22 10 'Enter to confirm'\n" +
-          "END-MAP\n" +
-          "INPUT USING MAP EMPENTRY\n" +
+          "INPUT USING MAP 'EMPENTRY'\n" +
           "WRITE 'You entered' #NAME 'in department' #DEPT\n" +
           "END",
       },
       {
         title: 'Attribute bytes make fields behave differently',
         body:
-          '<p>Every field on a 3270 carries an attribute byte. A label is ' +
-          '<b>protected</b>, so the operator cannot type into it. A numeric field accepts ' +
-          'digits only. <code class="inl">(AD=I)</code> intensifies a field and ' +
-          '<code class="inl">(AD=N)</code> hides what is typed into it, which is how ' +
-          'password fields have always worked.</p>',
+          '<p>Every field on a 3270 carries an <b>attribute byte</b>, and it is the byte ' +
+          'that governs behavior, not the program. A label is <b>protected</b>, so the ' +
+          'operator cannot type into it at all. <code class="inl">(AD=I)</code> intensifies ' +
+          'a field and <code class="inl">(AD=N)</code> makes what is typed non-display, ' +
+          'which is how password fields have always worked.</p>' +
+          '<p>A field bound to a numeric variable is marked numeric. On real 3270 hardware ' +
+          'that shifts a data-entry keyboard to numeric and nothing more, so treat it as a ' +
+          'convenience rather than validation. Natural still checks the value when the ' +
+          'screen comes back, which is the check you can actually rely on.</p>',
         code:
           "DEFINE DATA LOCAL\n" +
           "1 #USER (A10)\n" +
           "1 #PIN (A4)\n" +
           "1 #AMOUNT (N7)\n" +
           "END-DEFINE\n" +
-          "DEFINE MAP SIGN-ON\n" +
-          "TEXT 3 28 'SECURE TRANSFER'\n" +
-          "FIELD 8 10 'User:  ' #USER (AD=I)\n" +
-          "FIELD 10 10 'PIN:   ' #PIN (AD=N)\n" +
-          "FIELD 12 10 'Amount:' #AMOUNT\n" +
-          "END-MAP\n" +
-          "INPUT USING MAP SIGN-ON\n" +
+          "INPUT USING MAP 'SIGNON'\n" +
           "WRITE 'User' #USER 'moved' #AMOUNT\n" +
           "WRITE 'The PIN was never displayed on screen.'\n" +
           "END",
@@ -1106,20 +1112,23 @@ export const LESSONS = [
         title: 'PF keys tell the program what the operator wanted',
         body:
           '<p>The key that ends a screen is an <b>AID key</b>, and the program reads it ' +
-          'from <code class="inl">*PF-KEY</code>. Every "PF3 to exit" convention in ' +
-          'mainframe software is this one field.</p>' +
+          'from <code class="inl">*PF-KEY</code>.</p>' +
+          '<p>Here is the part that catches people. A PF key your program has not ' +
+          '<b>sensitized</b> arrives as <code class="inl">ENTR</code>, so the PF3 branch ' +
+          'below would never run. <code class="inl">SET KEY PF3</code> is what makes the ' +
+          'key reach the program at all. Delete that line and press PF3: the program will ' +
+          'behave as though you pressed Enter.</p>' +
+          '<div class="tip">PF3 for exit is an <b>SAA/CUA</b> convention that ISPF, CICS ' +
+          'and Natural applications each implement for themselves. It is a shared habit ' +
+          'across mainframe software, not one shared field.</div>' +
           '<div class="tip">Press <b>Enter</b> to confirm, or the <b>PF3</b> button below ' +
           'the screen to cancel, and watch which branch runs.</div>',
         code:
           "DEFINE DATA LOCAL\n" +
           "1 #NAME (A20)\n" +
           "END-DEFINE\n" +
-          "DEFINE MAP CONFIRM\n" +
-          "TEXT 2 25 'ADD AN EMPLOYEE'\n" +
-          "FIELD 6 10 'Name:' #NAME\n" +
-          "TEXT 22 10 'Enter to save, PF3 to cancel'\n" +
-          "END-MAP\n" +
-          "INPUT USING MAP CONFIRM\n" +
+          "SET KEY PF3\n" +
+          "INPUT USING MAP 'CONFIRM'\n" +
           "IF *PF-KEY = 'PF3'\n" +
           "WRITE 'Cancelled. Nothing was saved.'\n" +
           "ELSE\n" +
@@ -1151,12 +1160,7 @@ export const LESSONS = [
           "1 #HOWMANY (N3)\n" +
           "1 #TOTAL (P11)\n" +
           "END-DEFINE\n" +
-          "DEFINE MAP SEARCH\n" +
-          "TEXT 2 25 'STAFF ENQUIRY'\n" +
-          "FIELD 6 10 'Country code:' #WHERE\n" +
-          "TEXT 22 10 'Enter to search'\n" +
-          "END-MAP\n" +
-          "INPUT USING MAP SEARCH\n" +
+          "INPUT USING MAP 'SEARCH'\n" +
           "CALLNAT 'STAFFCNT' #WHERE #HOWMANY\n" +
           "IF #HOWMANY = 0\n" +
           "WRITE 'No staff found in' #WHERE\n" +
@@ -1190,13 +1194,7 @@ export const LESSONS = [
           "1 #WHO (A20)\n" +
           "1 #RISE (N5)\n" +
           "END-DEFINE\n" +
-          "DEFINE MAP RAISEMAP\n" +
-          "TEXT 2 25 'AWARD A RAISE'\n" +
-          "FIELD 6 10 'Employee:' #WHO\n" +
-          "FIELD 8 10 'Amount:  ' #RISE\n" +
-          "TEXT 22 10 'Try GARRET and 3000'\n" +
-          "END-MAP\n" +
-          "INPUT USING MAP RAISEMAP\n" +
+          "INPUT USING MAP 'RAISEMAP'\n" +
           "IF #RISE = 0\n" +
           "REINPUT 'Enter an amount greater than zero.'\n" +
           "END-IF\n" +
@@ -1248,5 +1246,50 @@ export const LIBRARY = {
     'ADD 1 TO #HOWMANY',
     'END-FIND',
     'END',
+  ].join('\n'),
+};
+
+/**
+ * Map objects the lessons can show.
+ *
+ * A map is a separate Natural object, not part of a program. On a real system you draw one
+ * in the map editor and save it under its own name, so there is no authentic hand-written
+ * source to copy. The layout language below is therefore this course's own, and the lessons
+ * say so. What it describes is the part that transfers: positions, labels, the variable each
+ * entry field is bound to, and the attribute byte that governs how the field behaves.
+ */
+export const MAPS = {
+  'EMPENTRY': [
+    "TEXT 2 25 'EMPLOYEE MAINTENANCE'",
+    "TEXT 4 25 '===================='",
+    "FIELD 7 10 'Name:' #NAME",
+    "FIELD 9 10 'Dept:' #DEPT",
+    "TEXT 22 10 'Tab between fields, Enter to transmit'",
+  ].join('\n'),
+
+  'SIGNON': [
+    "TEXT 3 28 'SECURE TRANSFER'",
+    "FIELD 8 10 'User:  ' #USER (AD=I)",
+    "FIELD 10 10 'PIN:   ' #PIN (AD=N)",
+    "FIELD 12 10 'Amount:' #AMOUNT",
+  ].join('\n'),
+
+  'CONFIRM': [
+    "TEXT 2 25 'ADD AN EMPLOYEE'",
+    "FIELD 6 10 'Name:' #NAME",
+    "TEXT 22 10 'Enter to save, PF3 to cancel'",
+  ].join('\n'),
+
+  'SEARCH': [
+    "TEXT 2 25 'STAFF ENQUIRY'",
+    "FIELD 6 10 'Country code:' #WHERE",
+    "TEXT 22 10 'Enter to search'",
+  ].join('\n'),
+
+  'RAISEMAP': [
+    "TEXT 2 25 'AWARD A RAISE'",
+    "FIELD 6 10 'Employee:' #WHO",
+    "FIELD 8 10 'Amount:  ' #RISE",
+    "TEXT 22 10 'Try GARRET and 3000'",
   ].join('\n'),
 };

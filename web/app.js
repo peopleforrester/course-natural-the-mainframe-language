@@ -3,7 +3,7 @@
 
 import { Terminal } from './vendor/xterm.js';
 import init, { NaturalSession } from './pkg/natural_wasm.js';
-import { LESSONS, LIBRARY } from './lessons.js';
+import { LESSONS, LIBRARY, MAPS } from './lessons.js';
 
 // A Model 2 screen. Fixed, with no scrollback and no fit addon, because a real 3270
 // neither scrolls nor reflows. See research/08-mainframe-emulators-3270.md.
@@ -64,11 +64,49 @@ function setOia(system, message) {
   els.oiaMsg.textContent = message || '';
 }
 
+const PANES = ['editor', 'terminal', 'library'];
+
 function showPane(which) {
-  document.getElementById('editorpane').hidden = which !== 'editor';
-  document.getElementById('termpane').hidden = which !== 'terminal';
-  document.getElementById('tabeditor').classList.toggle('active', which === 'editor');
-  document.getElementById('tabterminal').classList.toggle('active', which === 'terminal');
+  for (const pane of PANES) {
+    document.getElementById(pane + 'pane').hidden = which !== pane;
+    document.getElementById('tab' + pane).classList.toggle('active', which === pane);
+  }
+}
+
+/**
+ * Fills the library pane.
+ *
+ * Subprograms and maps are listed apart because they are different kinds of object and a
+ * program reaches them through different statements: CALLNAT for one, INPUT USING MAP for
+ * the other. The map layout language is this course's own, which the heading says outright.
+ */
+function renderLibrary() {
+  const escape = (text) =>
+    text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const section = (heading, note, entries) => {
+    const objects = Object.entries(entries)
+      .map(
+        ([name, source]) =>
+          '<div class="libobj"><h4>' + escape(name) + '</h4><pre>' +
+          escape(source) + '</pre></div>',
+      )
+      .join('');
+    return '<h3>' + heading + '</h3><p class="libnote">' + note + '</p>' + objects;
+  };
+  document.getElementById('librarylist').innerHTML =
+    section(
+      'Subprograms',
+      'Called with <code>CALLNAT</code>. Each has its own data and communicates only ' +
+        'through its parameter list.',
+      LIBRARY,
+    ) +
+    section(
+      'Maps',
+      'Shown with <code>INPUT USING MAP</code>. On a real system you would draw these in ' +
+        'the map editor; the layout notation below is this course\'s own, because a real ' +
+        'map has no hand-written source to copy.',
+      MAPS,
+    );
 }
 
 // ---- the editor ----
@@ -157,6 +195,10 @@ function runSource(source) {
   // The lesson library travels with every run, so any lesson may CALLNAT these.
   for (const [name, body] of Object.entries(LIBRARY)) {
     state.session.addObject(name, body);
+  }
+  // A map is a separate object too, registered the same way a subprogram is.
+  for (const [name, layout] of Object.entries(MAPS)) {
+    state.session.addMap(name, layout);
   }
   state.awaitingInput = false;
   state.buffer = '';
@@ -350,6 +392,7 @@ function renderProgress() {
 function evaluate(source, answers) {
   const session = new NaturalSession(source);
   for (const [name, body] of Object.entries(LIBRARY)) session.addObject(name, body);
+  for (const [name, layout] of Object.entries(MAPS)) session.addMap(name, layout);
 
   const lines = [];
   let errored = null;
@@ -569,6 +612,7 @@ async function main() {
   });
   els.aidbar.style.display = 'none';
 
+  renderLibrary();
   renderLesson(0);
   renderProgress();
   showPane('editor');

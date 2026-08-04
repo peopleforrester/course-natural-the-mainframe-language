@@ -12,7 +12,7 @@ mod value;
 pub use data::{Database, Ddm, DdmField, Record};
 pub use error::NaturalError;
 pub use interp::{Field, InputRequest, Interpreter, Library, Step};
-pub use parser::{Program, parse as parse_program};
+pub use parser::{MapElement, Program, parse as parse_program, parse_map};
 pub use screen::{Attribute, SCREEN_COLUMNS, SCREEN_ROWS, Screen, ScreenField};
 pub use value::{Format, Value, print_width, render_field};
 
