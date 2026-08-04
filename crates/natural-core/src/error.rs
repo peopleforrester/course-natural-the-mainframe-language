@@ -262,6 +262,16 @@ pub enum NaturalError {
     },
 
     #[error(
+        "Line {line}: Natural needs a space around each arithmetic operator, so write \
+         '{written}' as '{spaced}'."
+    )]
+    MissingOperatorSpaces {
+        written: String,
+        spaced: String,
+        line: usize,
+    },
+
+    #[error(
         "Line {line}: {statement} cannot put its result into the constant {value}. \
          {hint}"
     )]

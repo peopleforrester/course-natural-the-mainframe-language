@@ -2348,6 +2348,26 @@ fn parse_arithmetic_verb(
         _ => unreachable!("the verb set is closed"),
     };
     let target = require_name(target_token, line)?;
+    if target.chars().next().is_some_and(|c| c.is_ascii_digit()) {
+        let hint = match verb {
+            "MULTIPLY" => "MULTIPLY puts its answer in the FIRST operand, so write \
+                           MULTIPLY #TOTAL BY 3."
+                .to_string(),
+            "DIVIDE" => "DIVIDE puts its answer in the operand after INTO, so write \
+                         DIVIDE 3 INTO #TOTAL."
+                .to_string(),
+            other => format!(
+                "{other} puts its answer in the operand after {keyword}, which has to be a \
+                 field."
+            ),
+        };
+        return Err(NaturalError::ConstantAsResultField {
+            statement: verb.to_string(),
+            value: target,
+            hint,
+            line,
+        });
+    }
 
     Ok(Statement::Compute {
         target: target.clone(),
