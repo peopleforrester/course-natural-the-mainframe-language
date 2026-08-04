@@ -67,8 +67,9 @@ fn a_find_limit_caps_the_records_processed() {
 
 #[test]
 fn the_where_clause_filters_further() {
+    // SORTED BY comes before WHERE, which is the documented order.
     let out = run(&program(
-        "FIND EMPLOYEES-VIEW WITH COUNTRY = 'USA' WHERE SALARY > 50000 SORTED BY NAME\n\
+        "FIND EMPLOYEES-VIEW WITH COUNTRY = 'USA' SORTED BY NAME WHERE SALARY > 50000\n\
          WRITE NAME\nEND-FIND",
     ))
     .expect("should run");
@@ -80,13 +81,23 @@ fn the_where_clause_filters_further() {
 
 #[test]
 fn if_no_records_found_runs_when_nothing_matched() {
+    // The clause does not replace the loop. Natural enters the loop once with the database
+    // fields reset, so an empty NAME prints here. ESCAPE BOTTOM is how you suppress it, and
+    // find_semantics.rs covers that path.
     let out = run(&program(
         "FIND EMPLOYEES-VIEW WITH NAME = 'NOBODY'\n\
          IF NO RECORDS FOUND\nWRITE 'none at all'\nEND-NOREC\n\
          WRITE NAME\nEND-FIND\nWRITE 'after'",
     ))
     .expect("should run");
-    assert_eq!(out.lines, vec!["none at all", "after"]);
+    assert_eq!(out.lines.len(), 3);
+    assert_eq!(out.lines[0], "none at all");
+    assert!(
+        out.lines[1].trim().is_empty(),
+        "the reset pass prints an empty NAME, got: {:?}",
+        out.lines[1]
+    );
+    assert_eq!(out.lines[2], "after");
 }
 
 #[test]
