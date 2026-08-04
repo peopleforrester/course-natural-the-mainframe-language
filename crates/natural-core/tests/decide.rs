@@ -20,6 +20,8 @@ VALUE 2
 WRITE 'two'
 VALUE 3
 WRITE 'three'
+NONE VALUE
+IGNORE
 END-DECIDE";
     let out = run(&program(body)).expect("should run");
     assert_eq!(out.lines, vec!["two"]);
@@ -64,6 +66,8 @@ VALUE 1
 WRITE 'first'
 VALUE 1
 WRITE 'second'
+NONE VALUE
+IGNORE
 END-DECIDE";
     let out = run(&program(body)).expect("should run");
     assert_eq!(out.lines, vec!["first"]);
@@ -78,6 +82,8 @@ VALUE 1
 WRITE 'first'
 VALUE 1
 WRITE 'second'
+NONE VALUE
+IGNORE
 END-DECIDE";
     let out = run(&program(body)).expect("should run");
     assert_eq!(out.lines, vec!["first", "second"]);
@@ -92,6 +98,8 @@ VALUE 'BLUE'
 WRITE 'cool'
 VALUE 'RED'
 WRITE 'warm'
+NONE VALUE
+IGNORE
 END-DECIDE";
     let out = run(&program(body)).expect("should run");
     assert_eq!(out.lines, vec!["warm"]);
@@ -104,6 +112,8 @@ MOVE 1 TO #N
 DECIDE ON FIRST VALUE OF #N
 VALUE 1
 WRITE 'inside'
+NONE VALUE
+IGNORE
 END-DECIDE
 WRITE 'after'";
     let out = run(&program(body)).expect("should run");
@@ -123,6 +133,8 @@ WHEN #N > 10
 WRITE 'medium'
 WHEN #N > 0
 WRITE 'small'
+WHEN NONE
+IGNORE
 END-DECIDE";
     let out = run(&program(body)).expect("should run");
     assert_eq!(out.lines, vec!["medium"]);
@@ -153,6 +165,8 @@ WHEN #N > 20
 WRITE 'over twenty'
 WHEN #N > 100
 WRITE 'over a hundred'
+WHEN NONE
+IGNORE
 END-DECIDE";
     let out = run(&program(body)).expect("should run");
     assert_eq!(out.lines, vec!["over ten", "over twenty"]);
@@ -177,6 +191,8 @@ ELSE
 WRITE 'two'
 END-IF
 END-FOR
+NONE VALUE
+IGNORE
 END-DECIDE
 END";
     let out = run(source).expect("should run");
@@ -255,4 +271,60 @@ fn a_malformed_decide_header_is_a_teaching_error() {
         matches!(err, NaturalError::UnknownStatement { .. }),
         "expected UnknownStatement, got {err:?}"
     );
+}
+
+// ---- the NONE clause is required ----
+
+#[test]
+fn a_decide_on_without_a_none_clause_is_a_teaching_error() {
+    // Both DECIDE forms print ANY and ALL in square brackets and NONE without them, and the
+    // syntax-symbols page says brackets mark an element optional. A learner who omits it
+    // here would have met NAT0000-series grief on a real system instead.
+    let body = "\
+MOVE 1 TO #N
+DECIDE ON FIRST VALUE OF #N
+VALUE 1
+WRITE 'one'
+END-DECIDE";
+    let err = run(&program(body)).expect_err("a missing NONE clause should be rejected");
+    assert!(
+        matches!(err, NaturalError::MissingNoneClause { .. }),
+        "expected MissingNoneClause, got {err:?}"
+    );
+    assert!(
+        err.to_string().contains("NONE VALUE"),
+        "the message should name the clause DECIDE ON needs, got: {err}"
+    );
+}
+
+#[test]
+fn a_decide_for_without_a_none_clause_is_a_teaching_error() {
+    let body = "\
+MOVE 1 TO #N
+DECIDE FOR FIRST CONDITION
+WHEN #N > 0
+WRITE 'positive'
+END-DECIDE";
+    let err = run(&program(body)).expect_err("a missing NONE clause should be rejected");
+    assert!(
+        err.to_string().contains("WHEN NONE"),
+        "the message should name the clause DECIDE FOR needs, got: {err}"
+    );
+}
+
+#[test]
+fn ignore_is_how_a_clause_says_it_does_nothing() {
+    // The documentation's own note: "If no action is to be performed under a certain
+    // condition, you must specify the statement IGNORE in the corresponding clause."
+    let body = "\
+MOVE 99 TO #N
+DECIDE ON FIRST VALUE OF #N
+VALUE 1
+WRITE 'one'
+NONE VALUE
+IGNORE
+END-DECIDE
+WRITE 'after'";
+    let out = run(&program(body)).expect("should run");
+    assert_eq!(out.lines, vec!["after"]);
 }
