@@ -16,9 +16,11 @@ export const LESSONS = [
           'Neumann. It was designed around ADABAS, so reading and writing database ' +
           'records is part of the language rather than a library bolted on.</p>' +
           '<p>Today it runs on <b>IBM z/OS</b> and <b>Linux</b>, plus Windows and ' +
-          'containers. Older platforms you may see mentioned online (z/VSE, BS2000, ' +
-          'AIX, Solaris, HP-UX) have all reached end of maintenance and are no longer ' +
-          'current targets.</p>' +
+          'containers. Two different things happened to the older platforms you may see ' +
+          'mentioned online, and the distinction is worth keeping straight. ' +
+          '<b>AIX, Solaris and HP-UX</b> reached end of maintenance on 31 December 2024. ' +
+          '<b>z/VSE and BS2000</b> were dropped earlier and are simply not supported from ' +
+          'version 9.2 onward, with no separate end-of-maintenance date published.</p>' +
           '<div class="tip">Adabas &amp; Natural has been a standalone business under ' +
           'Software GmbH since January 2025.</div>',
       },
@@ -33,9 +35,23 @@ export const LESSONS = [
         title: 'What this course is, honestly',
         body:
           '<p>The terminal runs a <b>teaching interpreter over sample data</b>. It is not ' +
-          'a live ADABAS instance, and it implements the subset of Natural that Tier 1 ' +
-          'teaches. Everything you write here is real Natural syntax, verified against ' +
-          'the official documentation.</p>',
+          'a live ADABAS instance, and it implements the subset of Natural this course ' +
+          'teaches.</p>' +
+          '<p>Every <b>statement</b> you write here is real Natural, checked against the ' +
+          'Software AG statement reference. Where the interpreter rejects something, it ' +
+          'rejects it for the reason a real compiler would.</p>' +
+          '<p>Two things around the edges are deliberately ours, and you should know ' +
+          'which:</p>' +
+          '<ul>' +
+          '<li>The sample <code class="inl">EMPLOYEES</code> file is <b>flattened</b>. In ' +
+          'the real Software AG demo file, salary lives inside a repeating group and needs ' +
+          'index notation. We teach the loops first and the group structure later.</li>' +
+          '<li>The <b>source format for maps</b> is this course\'s own. A real map is drawn ' +
+          'in a screen editor and has no hand-written text form, so there is nothing ' +
+          'authentic to copy. The program-side statements that <i>use</i> a map are real.</li>' +
+          '</ul>' +
+          '<div class="tip">Anywhere the course departs from production Natural, it says ' +
+          'so on the page where it happens. You should never find out from a compiler.</div>',
       },
     ],
   },

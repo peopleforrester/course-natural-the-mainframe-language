@@ -177,7 +177,10 @@ pub enum NaturalError {
     )]
     ReinputWithoutInput { line: usize },
 
-    #[error("Line {line}: there is no map called '{name}'. Define it with DEFINE MAP.")]
+    #[error(
+        "Line {line}: there is no map called '{name}' in this library. A map is a separate \
+         object, so add it in the Library tab before a program can use it."
+    )]
     UnknownMap { name: String, line: usize },
 
     #[error("Line {line}: cannot divide by zero.")]
@@ -190,6 +193,82 @@ pub enum NaturalError {
     NonNumericArithmetic {
         name: String,
         kind: String,
+        line: usize,
+    },
+
+    #[error(
+        "Line {line}: {second} must come before {first}. The documented clause order for \
+         this statement is {order}."
+    )]
+    ClauseOutOfOrder {
+        first: String,
+        second: String,
+        order: String,
+        line: usize,
+    },
+
+    #[error(
+        "Line {line}: no loop here is labelled '{name}'. Outside the loop itself, a system \
+         variable needs a label saying which loop it came from, as in *NUMBER(MYLOOP.)."
+    )]
+    UnknownLabel { name: String, line: usize },
+
+    #[error(
+        "Line {line}: '{name}' is {length} characters. A Natural object name is 1 to 8 \
+         characters, because it has to fit a mainframe library member name."
+    )]
+    ObjectNameTooLong {
+        name: String,
+        length: usize,
+        line: usize,
+    },
+
+    #[error(
+        "Line {line}: an object has one DEFINE DATA statement. PARAMETER and LOCAL are \
+         clauses inside it, so write them in a single block ending with one END-DEFINE."
+    )]
+    RepeatedDefineData { line: usize },
+
+    #[error(
+        "Line {line}: '{name}' is a Natural reserved word, so it cannot name {a_what}. \
+         Pick a name that is not also a statement or clause keyword."
+    )]
+    ReservedWordAsName {
+        name: String,
+        a_what: String,
+        line: usize,
+    },
+
+    #[error(
+        "Line {line}: parameter {position} of '{subprogram}' is {expected}, but {actual} was \
+         passed. Parameters are passed by reference, so format and length must match exactly."
+    )]
+    ParameterFormatMismatch {
+        subprogram: String,
+        position: usize,
+        expected: String,
+        actual: String,
+        line: usize,
+    },
+
+    #[error(
+        "Line {line}: this {keyword} has no {clause} clause. Natural requires one, so that \
+         every possible outcome is handled even when you expect it cannot happen."
+    )]
+    MissingNoneClause {
+        keyword: String,
+        clause: String,
+        line: usize,
+    },
+
+    #[error(
+        "Line {line}: {statement} cannot put its result into the constant {value}. \
+         {hint}"
+    )]
+    ConstantAsResultField {
+        statement: String,
+        value: String,
+        hint: String,
         line: usize,
     },
 }

@@ -124,6 +124,12 @@ pub enum Statement {
         key: usize,
         target: usize,
     },
+    /// Empty every field of a view. Emitted at the end of an IF NO RECORDS FOUND clause,
+    /// because Natural resets the loop's database fields before the single pass it runs.
+    ResetViewFields {
+        view: String,
+        line: usize,
+    },
     /// Append the view buffer as a new record.
     Store {
         view: String,
@@ -343,8 +349,8 @@ enum OpenBlock {
         body_start: usize,
         /// The jump that skips the NOREC body when records were found.
         skip_norec: Option<usize>,
-        /// The jump that leaves the FIND after the NOREC body has run.
-        norec_exit: Option<usize>,
+        /// Whether a NOREC clause was seen, which decides how the guard is patched.
+        has_norec: bool,
         in_norec: bool,
         escapes: Vec<PendingEscape>,
         line: usize,
@@ -424,6 +430,9 @@ pub struct Program {
     /// Where each inline subroutine's body begins. Names resolve at run time, so a
     /// subroutine may be performed before the line that defines it.
     pub subroutines: std::collections::BTreeMap<String, usize>,
+    /// Statement labels, mapping the label to the loop key it names. A label is what makes
+    /// reference notation such as *NUMBER(EMP.) possible outside the loop itself.
+    pub labels: std::collections::BTreeMap<String, usize>,
 }
 
 /// Natural identifiers are not case sensitive, so every name is stored folded.
@@ -533,6 +542,14 @@ fn parse_line(
     mode: &mut Mode,
     blocks: &mut Vec<OpenBlock>,
 ) -> Result<bool, NaturalError> {
+    // Reference notation arrives as four tokens because the lexer splits parentheses.
+    // Rejoining them here keeps *NUMBER(EMP.) an ordinary field name everywhere else.
+    let tokens = &join_reference_notation(tokens);
+
+    // A statement label prefixes the statement it names, as in EMP. FIND ... . Strip it
+    // before dispatch so every statement arm sees the keyword it expects.
+    let (label, tokens) = split_label(tokens);
+
     let Some(first) = tokens.first() else {
         return Ok(false);
     };
@@ -547,6 +564,18 @@ fn parse_line(
         }
         Token::Newline => return Ok(false),
     };
+
+    if let Some(name) = &label
+        && !matches!(head.as_str(), "FIND" | "READ" | "HISTOGRAM")
+    {
+        return Err(NaturalError::UnknownStatement {
+            name: format!(
+                "'{name}.' as a label on {head}. Label a FIND, READ, or HISTOGRAM, which are \
+                 the loops reference notation can name"
+            ),
+            line,
+        });
+    }
 
     if matches!(*mode, Mode::DataBlock | Mode::ParameterBlock) {
         if head == "END-DEFINE" {
@@ -742,17 +771,23 @@ fn parse_line(
             // When none were found, the guard lands on the clause body, just past the skip.
             let clause_start = program.statements.len();
             patch_target(program, guard, clause_start);
-            if let Some(OpenBlock::Find { skip_norec, .. }) = blocks.last_mut() {
+            if let Some(OpenBlock::Find {
+                skip_norec,
+                has_norec,
+                ..
+            }) = blocks.last_mut()
+            {
                 *skip_norec = Some(skip);
+                *has_norec = true;
             }
             Ok(false)
         }
         "END-NOREC" => {
             let Some(OpenBlock::Find {
                 skip_norec,
-                norec_exit,
                 body_start,
                 in_norec,
+                view,
                 ..
             }) = blocks.last_mut()
             else {
@@ -763,12 +798,15 @@ fn parse_line(
             }
             *in_norec = false;
             let skip = skip_norec.expect("in_norec implies the skip jump exists");
-            // Having run the clause, the FIND is finished; this jump is patched at END-FIND.
-            let exit_jump = program.statements.len();
-            *norec_exit = Some(exit_jump);
+            let view = view.clone();
+            // The documented behavior, and the surprising part: the clause does not replace
+            // the loop. Natural enters the loop once anyway, having "reset to empty all
+            // database fields which reference the file specified in the current loop".
+            // Falling through into the body is therefore correct, and ESCAPE BOTTOM inside
+            // the clause is the documented way to skip that pass.
             program
                 .statements
-                .push(Statement::Jump { target: usize::MAX });
+                .push(Statement::ResetViewFields { view, line });
             // The main loop body begins after the clause.
             let main = program.statements.len();
             *body_start = main;
@@ -853,6 +891,7 @@ fn parse_line(
         "FIND" => {
             let header = parse_find_header(&tokens[1..], line)?;
             let key = program.statements.len();
+            register_label(program, &label, key);
             program.statements.push(Statement::FindInit {
                 view: header.view.clone(),
                 with: header.with,
@@ -875,7 +914,7 @@ fn parse_line(
                 guard,
                 body_start: program.statements.len(),
                 skip_norec: None,
-                norec_exit: None,
+                has_norec: false,
                 in_norec: false,
                 escapes: Vec::new(),
                 line,
@@ -888,7 +927,7 @@ fn parse_line(
                 view,
                 guard,
                 body_start,
-                norec_exit,
+                has_norec,
                 escapes,
                 ..
             }) = pop_matching(blocks, |b| matches!(b, OpenBlock::Find { .. }))
@@ -903,12 +942,11 @@ fn parse_line(
                 line,
             });
             let after = program.statements.len();
-            match norec_exit {
-                // With a NOREC clause the guard already points at that clause, and it is
-                // the clause's own exit jump that leaves the FIND.
-                Some(exit_jump) => patch_target(program, exit_jump, after),
-                // Without one, an empty search skips the loop entirely.
-                None => patch_target(program, guard, after),
+            // With a NOREC clause the guard already points at that clause, which falls
+            // through into the single reset pass. Without one, an empty search has nothing
+            // to run before the loop, so it skips the loop entirely.
+            if !has_norec {
+                patch_target(program, guard, after);
             }
             patch_escapes(program, escapes, after, next);
             Ok(false)
@@ -997,6 +1035,7 @@ fn parse_line(
         "HISTOGRAM" => {
             let (view, descriptor, limit) = parse_histogram_header(&tokens[1..], line)?;
             let init = program.statements.len();
+            register_label(program, &label, init);
             program.statements.push(Statement::HistogramInit {
                 view: view.clone(),
                 descriptor: descriptor.clone(),
@@ -1040,6 +1079,7 @@ fn parse_line(
         "READ" => {
             let (view, by, limit) = parse_read_header(&tokens[1..], line)?;
             let init = program.statements.len();
+            register_label(program, &label, init);
             program.statements.push(Statement::ReadInit {
                 view: view.clone(),
                 by,
@@ -1428,6 +1468,62 @@ fn parse_reset(tokens: &[Token], line: usize) -> Result<Statement, NaturalError>
     Ok(Statement::Reset { targets })
 }
 
+/// A statement label is a name ending in a period, standing before the statement it names.
+/// Only a loop can carry one here, because a label's whole purpose in this course is to let
+/// reference notation say which loop a system variable came from.
+fn split_label(tokens: &[Token]) -> (Option<String>, &[Token]) {
+    let Some(Token::Word { text, .. }) = tokens.first() else {
+        return (None, tokens);
+    };
+    // A label is a bare name with a trailing period and nothing else, which distinguishes
+    // it from decimals and from END-FIND style keywords.
+    let Some(name) = text.strip_suffix('.') else {
+        return (None, tokens);
+    };
+    if name.is_empty() || tokens.len() < 2 || !name.chars().all(is_label_char) {
+        return (None, tokens);
+    }
+    (Some(normalize(name)), &tokens[1..])
+}
+
+fn is_label_char(c: char) -> bool {
+    c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '#'
+}
+
+/// Records a loop's label so reference notation can resolve it later.
+fn register_label(program: &mut Program, label: &Option<String>, key: usize) {
+    if let Some(name) = label {
+        program.labels.insert(name.clone(), key);
+    }
+}
+
+/// Rejoins `*NUMBER ( EMP. )` into one word token. The lexer splits parentheses, so without
+/// this every consumer of an operand would need to know about reference notation.
+fn join_reference_notation(tokens: &[Token]) -> Vec<Token> {
+    let mut out: Vec<Token> = Vec::with_capacity(tokens.len());
+    let mut i = 0;
+    while i < tokens.len() {
+        if let Token::Word { text, line } = &tokens[i]
+            && text.starts_with('*')
+            && let Some([open, label, close]) = tokens.get(i + 1..i + 4)
+            && matches!(open, Token::Word { text, .. } if text == "(")
+            && matches!(close, Token::Word { text, .. } if text == ")")
+            && let Token::Word { text: name, .. } = label
+            && name.ends_with('.')
+        {
+            out.push(Token::Word {
+                text: format!("{}({})", normalize(text), normalize(name)),
+                line: *line,
+            });
+            i += 4;
+            continue;
+        }
+        out.push(tokens[i].clone());
+        i += 1;
+    }
+    out
+}
+
 fn program_len(program: &Program) -> usize {
     program.statements.len()
 }
@@ -1729,20 +1825,27 @@ fn parse_find_header(tokens: &[Token], line: usize) -> Result<FindHeader, Natura
     }
     let with_start = at + 1;
 
-    // The clauses that may follow the search condition, in the order Natural allows.
+    // The documented clause order is WITH, then SORTED BY, then WHERE. Enforcing it rather
+    // than accepting either arrangement is deliberate: the course promises real Natural, so
+    // a learner who writes it the other way should find out here instead of on a real system.
     let where_at = words.iter().position(|w| w.as_deref() == Some("WHERE"));
     let sorted_at = words.iter().position(|w| w.as_deref() == Some("SORTED"));
 
-    let with_end = where_at.or(sorted_at).unwrap_or(tokens.len());
-    let with = parse_condition(&tokens[with_start..with_end], line)?;
+    if let (Some(w), Some(s)) = (where_at, sorted_at)
+        && w < s
+    {
+        return Err(NaturalError::ClauseOutOfOrder {
+            first: "WHERE".to_string(),
+            second: "SORTED BY".to_string(),
+            order: "WITH, then SORTED BY, then WHERE".to_string(),
+            line,
+        });
+    }
 
-    let filter = match where_at {
-        Some(start) => {
-            let end = sorted_at.unwrap_or(tokens.len());
-            Some(parse_condition(&tokens[start + 1..end], line)?)
-        }
-        None => None,
-    };
+    // The search condition runs up to whichever clause comes first, which after the order
+    // check above is SORTED BY when both are present.
+    let with_end = sorted_at.or(where_at).unwrap_or(tokens.len());
+    let with = parse_condition(&tokens[with_start..with_end], line)?;
 
     let sorted_by = match sorted_at {
         Some(start) => {
@@ -1751,6 +1854,11 @@ fn parse_find_header(tokens: &[Token], line: usize) -> Result<FindHeader, Natura
             }
             Some(word(start + 2).ok_or_else(malformed)?.to_string())
         }
+        None => None,
+    };
+
+    let filter = match where_at {
+        Some(start) => Some(parse_condition(&tokens[start + 1..], line)?),
         None => None,
     };
 

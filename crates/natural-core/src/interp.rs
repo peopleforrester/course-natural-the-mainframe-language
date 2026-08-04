@@ -213,19 +213,22 @@ impl Interpreter {
                 value: Value::Alpha("ENTR".to_string()),
             },
         );
+        let counter = Field {
+            format: Format::Numeric {
+                int_digits: 9,
+                decimals: 0,
+            },
+            value: Value::Number(Decimal::ZERO),
+        };
         for name in ["*NUMBER", "*COUNTER"] {
             // System variables are ordinary numeric fields as far as everything else is
             // concerned, so WRITE, DISPLAY, and IF need no special case for them.
-            fields.insert(
-                name.to_string(),
-                Field {
-                    format: Format::Numeric {
-                        int_digits: 9,
-                        decimals: 0,
-                    },
-                    value: Value::Number(Decimal::ZERO),
-                },
-            );
+            fields.insert(name.to_string(), counter.clone());
+            // A labelled loop gets its own copy per label, which is what keeps the value
+            // readable after the loop has ended and the bare form has moved on.
+            for label in program.labels.keys() {
+                fields.insert(format!("{name}({label}.)"), counter.clone());
+            }
         }
         Self {
             program,
@@ -386,12 +389,10 @@ impl Interpreter {
                         parts.push(match item {
                             WriteItem::Literal(text) => text.clone(),
                             WriteItem::Field { name, line } => {
-                                let field = self.fields.get(name).ok_or_else(|| {
-                                    NaturalError::UndeclaredVariable {
-                                        name: name.clone(),
-                                        line: *line,
-                                    }
-                                })?;
+                                let field = self
+                                    .fields
+                                    .get(name)
+                                    .ok_or_else(|| missing_field(name, *line))?;
                                 render_field(&field.value, &field.format)
                             }
                         });
@@ -594,7 +595,7 @@ impl Interpreter {
                             matched.push(record);
                         }
                     }
-                    self.set_system_variable("*NUMBER", matched.len());
+                    self.set_loop_variable("*NUMBER", key, matched.len());
 
                     if let Some(condition) = &filter {
                         let mut kept = Vec::with_capacity(matched.len());
@@ -630,6 +631,19 @@ impl Interpreter {
                     if empty {
                         self.pc = target;
                     }
+                }
+
+                Statement::ResetViewFields { view, line } => {
+                    let binding = self.view_binding(&view, line)?;
+                    let names: Vec<String> = binding.fields.clone();
+                    for name in names {
+                        if let Some(field) = self.fields.get_mut(&name) {
+                            field.value = field.format.default_value();
+                        }
+                    }
+                    // No record is current during the empty pass, so UPDATE and DELETE fail
+                    // with the same message they would give outside a loop.
+                    self.current_record = None;
                 }
 
                 Statement::Perform { name, line } => {
@@ -857,10 +871,7 @@ impl Interpreter {
                 continue;
             };
             let Some(field) = self.fields.get(bound) else {
-                return Err(NaturalError::UndeclaredVariable {
-                    name: bound.clone(),
-                    line: element.line,
-                });
+                return Err(missing_field(bound, element.line));
             };
 
             // Without an explicit AD= clause the attribute follows the field's format, so
@@ -1069,8 +1080,8 @@ impl Interpreter {
         if let Some(field) = self.fields.get_mut(descriptor) {
             field.value = value;
         }
-        self.set_system_variable("*NUMBER", count);
-        self.set_system_variable("*COUNTER", processed);
+        self.set_loop_variable("*NUMBER", key, count);
+        self.set_loop_variable("*COUNTER", key, processed);
         true
     }
 
@@ -1106,6 +1117,23 @@ impl Interpreter {
         }
     }
 
+    /// Sets a system variable both in its bare form and under any label naming this loop.
+    /// The labelled copy is the one that survives the loop, which is the whole point of
+    /// reference notation.
+    fn set_loop_variable(&mut self, name: &str, key: usize, count: usize) {
+        self.set_system_variable(name, count);
+        let labelled: Vec<String> = self
+            .program
+            .labels
+            .iter()
+            .filter(|(_, k)| **k == key)
+            .map(|(label, _)| format!("{name}({label}.)"))
+            .collect();
+        for field in labelled {
+            self.set_system_variable(&field, count);
+        }
+    }
+
     fn view_binding(&self, name: &str, line: usize) -> Result<ViewBinding, NaturalError> {
         self.views
             .get(name)
@@ -1136,7 +1164,7 @@ impl Interpreter {
         cursor.next += 1;
 
         let processed = self.cursors.get(&key).map(|c| c.next).unwrap_or(0);
-        self.set_system_variable("*COUNTER", processed);
+        self.set_loop_variable("*COUNTER", key, processed);
         // UPDATE and DELETE act on whatever was bound most recently, which is the
         // innermost active loop's record.
         self.current_record = Some(record);
@@ -1171,10 +1199,7 @@ impl Interpreter {
             let field = self
                 .fields
                 .get(name)
-                .ok_or_else(|| NaturalError::UndeclaredVariable {
-                    name: name.clone(),
-                    line: *field_line,
-                })?;
+                .ok_or_else(|| missing_field(name, *field_line))?;
             let header = name.clone();
             let width = print_width(&field.format).max(header.chars().count());
             columns.push(DisplayColumn {
@@ -1249,10 +1274,7 @@ impl Interpreter {
                 right: "a number".to_string(),
                 line,
             }),
-            None => Err(NaturalError::UndeclaredVariable {
-                name: name.to_string(),
-                line,
-            }),
+            None => Err(missing_field(name, line)),
         }
     }
 
@@ -1263,10 +1285,7 @@ impl Interpreter {
                 .fields
                 .get(name)
                 .map(|f| f.value.clone())
-                .ok_or_else(|| NaturalError::UndeclaredVariable {
-                    name: name.clone(),
-                    line: *line,
-                }),
+                .ok_or_else(|| missing_field(name, *line)),
         }
     }
 
@@ -1274,10 +1293,7 @@ impl Interpreter {
         self.fields
             .get(name)
             .map(|f| f.format.clone())
-            .ok_or_else(|| NaturalError::UndeclaredVariable {
-                name: name.to_string(),
-                line,
-            })
+            .ok_or_else(|| missing_field(name, line))
     }
 
     fn assign(&mut self, name: &str, value: Value, line: usize) -> Result<(), NaturalError> {
@@ -1286,12 +1302,29 @@ impl Interpreter {
                 field.value = value;
                 Ok(())
             }
-            None => Err(NaturalError::UndeclaredVariable {
-                name: name.to_string(),
-                line,
-            }),
+            None => Err(missing_field(name, line)),
         }
     }
+}
+
+/// Names the right concept for a name that resolved to nothing. Reference notation that
+/// finds no matching loop is a label problem, not an undeclared field, and saying so is the
+/// difference between a learner fixing the label and hunting for a DEFINE DATA entry.
+fn missing_field(name: &str, line: usize) -> NaturalError {
+    if let Some(label) = reference_label(name) {
+        return NaturalError::UnknownLabel { name: label, line };
+    }
+    NaturalError::UndeclaredVariable {
+        name: name.to_string(),
+        line,
+    }
+}
+
+/// Extracts `EMP` from `*NUMBER(EMP.)`.
+fn reference_label(name: &str) -> Option<String> {
+    let inner = name.strip_prefix('*')?.split_once('(')?.1;
+    let label = inner.strip_suffix(")")?.strip_suffix('.')?;
+    (!label.is_empty()).then(|| label.to_string())
 }
 
 impl PendingInput {
