@@ -130,6 +130,9 @@ pub enum Statement {
         view: String,
         line: usize,
     },
+    /// Do nothing, deliberately. Natural has no empty statement, so a clause that should
+    /// take no action says IGNORE rather than being left blank.
+    Ignore,
     /// Append the view buffer as a new record.
     Store {
         view: String,
@@ -366,6 +369,10 @@ enum OpenBlock {
         pending_next: Option<usize>,
         /// True once a clause body has been emitted, so the next clause knows to close it.
         in_clause: bool,
+        /// Whether the required NONE clause has been seen. Both DECIDE forms show ANY and
+        /// ALL bracketed and NONE unbracketed, and brackets are what mark an element
+        /// optional, so a DECIDE without NONE does not compile.
+        has_none: bool,
         line: usize,
     },
 }
@@ -861,8 +868,13 @@ fn parse_line(
                 end_jumps: Vec::new(),
                 pending_next: None,
                 in_clause: false,
+                has_none: false,
                 line,
             });
+            Ok(false)
+        }
+        "IGNORE" => {
+            program.statements.push(Statement::Ignore);
             Ok(false)
         }
         "VALUE" | "WHEN" | "NONE" => {
@@ -873,11 +885,23 @@ fn parse_line(
             let Some(OpenBlock::Decide {
                 end_jumps,
                 pending_next,
+                has_none,
+                subject,
                 ..
             }) = pop_matching(blocks, |b| matches!(b, OpenBlock::Decide { .. }))
             else {
                 return Err(block_mismatch("END-DECIDE", "DECIDE", line));
             };
+            if !has_none {
+                // Use IGNORE when the answer really is "do nothing", which is what the
+                // documentation's own note tells you to write.
+                let on = subject.is_some();
+                return Err(NaturalError::MissingNoneClause {
+                    keyword: if on { "DECIDE ON" } else { "DECIDE FOR" }.to_string(),
+                    clause: if on { "NONE VALUE" } else { "WHEN NONE" }.to_string(),
+                    line,
+                });
+            }
             let here = program_len(program);
             // The last clause's body falls through to here, so it needs no closing jump.
             if let Some(pending) = pending_next {
@@ -2038,6 +2062,7 @@ fn open_decide_clause(
         end_jumps,
         pending_next,
         in_clause,
+        has_none,
         ..
     }) = blocks.last_mut()
     else {
@@ -2081,6 +2106,7 @@ fn open_decide_clause(
 
     if is_none {
         // A NONE clause runs unconditionally once control reaches it.
+        *has_none = true;
         return Ok(());
     }
 

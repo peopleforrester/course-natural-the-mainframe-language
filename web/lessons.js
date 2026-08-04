@@ -311,7 +311,14 @@ export const LESSONS = [
         body:
           '<p><code class="inl">DECIDE FOR FIRST CONDITION</code> takes the first branch ' +
           'whose condition is true. It reads far better than nested IFs, and you will ' +
-          'meet it constantly in real maintenance code.</p>',
+          'meet it constantly in real maintenance code.</p>' +
+          '<p><code class="inl">WHEN NONE</code> is <b>required</b>, not a nicety. Natural ' +
+          'will not compile a DECIDE without it. The optional clauses in the syntax are ' +
+          'printed in square brackets; NONE is not one of them.</p>' +
+          '<div class="tip">If a branch genuinely should do nothing, write ' +
+          '<code class="inl">IGNORE</code>. Natural has no empty statement, so leaving the ' +
+          'clause blank is an error. Being made to write IGNORE is the point: it proves you ' +
+          'considered the case rather than forgot it.</div>',
         code:
           "DEFINE DATA LOCAL\n" +
           "1 #SCORE (N3)\n" +
@@ -334,7 +341,9 @@ export const LESSONS = [
         body:
           '<p>When you are testing one field against a list of values, ' +
           '<code class="inl">DECIDE ON</code> is the clearer form. A clause can list ' +
-          'several values.</p>',
+          'several values.</p>' +
+          '<p>The catch-all is spelled <code class="inl">NONE VALUE</code> here rather than ' +
+          '<code class="inl">WHEN NONE</code>, and it is required in this form too.</p>',
         code:
           "DEFINE DATA LOCAL\n" +
           "1 #DAY (N1)\n" +

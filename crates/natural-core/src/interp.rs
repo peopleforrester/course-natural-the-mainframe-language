@@ -633,6 +633,8 @@ impl Interpreter {
                     }
                 }
 
+                Statement::Ignore => {}
+
                 Statement::ResetViewFields { view, line } => {
                     let binding = self.view_binding(&view, line)?;
                     let names: Vec<String> = binding.fields.clone();
