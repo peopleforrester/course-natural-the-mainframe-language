@@ -1386,10 +1386,36 @@ fn missing_field(name: &str, line: usize) -> NaturalError {
     if let Some(label) = reference_label(name) {
         return NaturalError::UnknownLabel { name: label, line };
     }
+    // A name carrying an arithmetic operator is almost always one written without spaces,
+    // as in #A*2. Reporting it as an undeclared field sends the learner to DEFINE DATA to
+    // look for something that was never meant to be a field.
+    if name.len() > 1 && name[1..].contains(['*', '/', '+']) {
+        return NaturalError::MissingOperatorSpaces {
+            written: name.to_string(),
+            spaced: spaced_out(name),
+            line,
+        };
+    }
     NaturalError::UndeclaredVariable {
         name: name.to_string(),
         line,
     }
+}
+
+/// Rewrites `#A*2` as `#A * 2` for a diagnostic. The leading character is kept as-is
+/// because `*` also begins a system variable name.
+fn spaced_out(name: &str) -> String {
+    let mut out = String::with_capacity(name.len() * 3);
+    for (index, c) in name.chars().enumerate() {
+        if index > 0 && matches!(c, '*' | '/' | '+') {
+            out.push(' ');
+            out.push(c);
+            out.push(' ');
+        } else {
+            out.push(c);
+        }
+    }
+    out.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 /// Extracts `EMP` from `*NUMBER(EMP.)`.

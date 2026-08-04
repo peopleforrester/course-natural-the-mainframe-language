@@ -78,7 +78,7 @@
     {
       "where": "5.2 5. Input and decisions / IF, ELSE, END-IF",
       "kind": "demo",
-      "source": "DEFINE DATA LOCAL\n1 #AGE (N3)\nEND-DEFINE\nINPUT 'How many years of service?' #AGE\nIF #AGE >= 25\nWRITE 'Eligible for the long service award.'\nELSE\nWRITE 'Not yet eligible.'\nEND-IF\nEND"
+      "source": "DEFINE DATA LOCAL\n1 #SERVICE (N3)\nEND-DEFINE\nINPUT 'How many years of service?' #SERVICE\nIF #SERVICE >= 25\nWRITE 'Eligible for the long service award.'\nELSE\nWRITE 'Not yet eligible.'\nEND-IF\nEND"
     },
     {
       "where": "5.3 5. Input and decisions / DECIDE FOR: a ladder of conditions",
@@ -161,7 +161,7 @@
       "source": "DEFINE DATA LOCAL\n1 EMPLOYEES-VIEW VIEW OF EMPLOYEES\n2 NAME\n2 SALARY\nEND-DEFINE\nFIND EMPLOYEES-VIEW WITH NAME = 'GARRET'\nWRITE 'Before:' SALARY\nCOMPUTE SALARY = SALARY * 1.10\nUPDATE\nEND-FIND\nEND TRANSACTION\nFIND EMPLOYEES-VIEW WITH NAME = 'GARRET'\nWRITE 'After: ' SALARY\nEND-FIND\nEND"
     },
     {
-      "where": "9.3 9. Changing the database / Forget END TRANSACTION and lose the work",
+      "where": "9.3 9. Changing the database / Forget END TRANSACTION and see what is left behind",
       "kind": "demo",
       "source": "DEFINE DATA LOCAL\n1 EMPLOYEES-VIEW VIEW OF EMPLOYEES\n2 NAME\n2 SALARY\nEND-DEFINE\nFIND EMPLOYEES-VIEW WITH NAME = 'GARRET'\nCOMPUTE SALARY = 999999\nUPDATE\nWRITE 'In this run the field says:' SALARY\nEND-FIND\nWRITE 'But nothing was committed, so nothing persists.'\nEND"
     },
@@ -173,7 +173,7 @@
     {
       "where": "9.5 9. Changing the database / Capstone: put it all together",
       "kind": "demo",
-      "source": "DEFINE DATA LOCAL\n1 EMPLOYEES-VIEW VIEW OF EMPLOYEES\n2 NAME\n2 COUNTRY\n2 SALARY\n1 #TOTAL (P11)\n1 #RAISE (N9.2)\n1 #GRADE (A8)\nEND-DEFINE\nWRITE 'STAFF REVIEW'\nHISTOGRAM EMPLOYEES-VIEW FOR COUNTRY\nWRITE COUNTRY 'has' *NUMBER 'staff'\nEND-HISTOGRAM\nREAD EMPLOYEES-VIEW BY NAME\nADD SALARY TO #TOTAL\nDECIDE FOR FIRST CONDITION\nWHEN SALARY >= 60000\nMOVE 'SENIOR' TO #GRADE\nWHEN SALARY >= 40000\nMOVE 'MID' TO #GRADE\nWHEN NONE\nMOVE 'JUNIOR' TO #GRADE\nEND-DECIDE\nDISPLAY NAME COUNTRY SALARY #GRADE\nEND-READ\nWRITE 'Total payroll:' #TOTAL\nCOMPUTE ROUNDED #RAISE = #TOTAL * 0.035\nWRITE 'Raise budget: ' #RAISE\nEND"
+      "source": "DEFINE DATA LOCAL\n1 EMPLOYEES-VIEW VIEW OF EMPLOYEES\n2 NAME\n2 COUNTRY\n2 SALARY\n1 #TOTAL (P11)\n1 #RAISE (N9.2)\n1 #GRADE (A8)\nEND-DEFINE\nWRITE 'STAFF REVIEW'\nHISTOGRAM EMPLOYEES-VIEW FOR COUNTRY\nWRITE COUNTRY 'has' *NUMBER 'staff'\nEND-HISTOGRAM\nREAD EMPLOYEES-VIEW BY NAME\nADD SALARY TO #TOTAL\nDECIDE FOR FIRST CONDITION\nWHEN SALARY >= 60000\nMOVE 'SENIOR' TO #GRADE\nWHEN SALARY >= 40000\nMOVE 'MID' TO #GRADE\nWHEN NONE\nMOVE 'JUNIOR' TO #GRADE\nEND-DECIDE\nDISPLAY NAME COUNTRY SALARY #GRADE\nEND-READ\nWRITE 'Total payroll:' #TOTAL\nCOMPUTE ROUNDED #RAISE = #TOTAL * 0.035\nWRITE 'Raise budget: ' #RAISE\nFIND EMPLOYEES-VIEW WITH COUNTRY = 'UK' SORTED BY NAME WHERE SALARY < 40000\nWRITE 'Raising' NAME 'from' SALARY\nADD 1500 TO SALARY\nUPDATE\nEND-FIND\nEND TRANSACTION\nFIND EMPLOYEES-VIEW WITH COUNTRY = 'UK' SORTED BY NAME\nWRITE 'Now on file:' NAME SALARY\nEND-FIND\nEND"
     },
     {
       "where": "10.1 10. Validating what the operator typed / REINPUT re-asks",

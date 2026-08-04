@@ -190,3 +190,47 @@ fn an_unbalanced_parenthesis_is_a_teaching_error() {
         "expected UnknownStatement, got {err:?}"
     );
 }
+
+// ---- diagnostics name the concept, not the parser ----
+
+#[test]
+fn a_constant_cannot_receive_the_result_of_multiply() {
+    // MULTIPLY puts its answer in the first operand, so a constant there has nowhere to
+    // put the result. Reporting "'3' has not been declared" would send the learner to
+    // DEFINE DATA looking for a field that was never meant to exist.
+    let err = run("DEFINE DATA LOCAL\n1 #N (N5)\nEND-DEFINE\nMULTIPLY 3 BY #N\nEND")
+        .expect_err("a constant result operand should be rejected");
+    let message = err.to_string();
+    assert!(
+        message.contains("MULTIPLY") && message.contains("constant"),
+        "the message should name the statement and the problem, got: {message}"
+    );
+    assert!(
+        message.contains("FIRST operand"),
+        "the message should say where the result goes, got: {message}"
+    );
+}
+
+#[test]
+fn an_operator_written_without_spaces_says_so() {
+    let err = run("DEFINE DATA LOCAL\n1 #A (N5)\n1 #B (N5)\nEND-DEFINE\nCOMPUTE #B = #A*2\nEND")
+        .expect_err("a spaceless operator should be rejected");
+    let message = err.to_string();
+    assert!(
+        message.contains("#A * 2"),
+        "the message should show the corrected form, got: {message}"
+    );
+    assert!(
+        !message.contains("has not been declared"),
+        "it is not an undeclared field, got: {message}"
+    );
+}
+
+#[test]
+fn multiply_the_documented_way_round_works() {
+    let out = run(
+        "DEFINE DATA LOCAL\n1 #N (N5)\nEND-DEFINE\nMOVE 7 TO #N\nMULTIPLY #N BY 3\nWRITE #N\nEND",
+    )
+    .expect("the documented form should run");
+    assert!(out.lines[0].contains("21"), "got: {}", out.lines[0]);
+}

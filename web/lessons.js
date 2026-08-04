@@ -138,8 +138,11 @@ export const LESSONS = [
         body:
           '<p>Declarations come first, before any executable statement. Each field has a ' +
           'level number, a name, and a format in parentheses.</p>' +
-          '<p><b>A</b> is alphanumeric, <b>N</b> is numeric, <b>P</b> is packed numeric, ' +
-          '<b>I</b> is a binary integer, and <b>L</b> is logical.</p>',
+          '<p><b>A</b> is alphanumeric, <b>N</b> is numeric (unpacked), <b>P</b> is packed ' +
+          'numeric, <b>I</b> is an integer, and <b>L</b> is logical.</p>' +
+          '<div class="tip">Do not confuse <b>I</b> with <b>B</b>. They are different ' +
+          'formats: I is Integer, B is Binary. You will meet B in real code holding data ' +
+          'that is not a number at all.</div>',
         code:
           "DEFINE DATA LOCAL\n" +
           "1 #NAME (A20)\n" +
@@ -156,8 +159,9 @@ export const LESSONS = [
           '<p>This one trips up almost everyone. <code class="inl">(N7.2)</code> means ' +
           '<b>seven digits before</b> the decimal point and <b>two after</b>, so nine ' +
           'digit positions in total. It does not mean seven digits altogether.</p>' +
-          '<div class="tip">Limits worth knowing: N and P allow at most 29 positions, ' +
-          'and I accepts only lengths 1, 2, and 4.</div>',
+          '<div class="tip">Limits worth knowing: N and P allow at most 29 digit positions ' +
+          '<b>and at most 7 of them after the decimal point</b>, so (N5.8) is not valid ' +
+          'however you count. I accepts only lengths 1, 2, and 4.</div>',
         code:
           "DEFINE DATA LOCAL\n" +
           "1 #BIG (N7.2)\n" +
@@ -244,9 +248,15 @@ export const LESSONS = [
       {
         title: 'The arithmetic verbs',
         body:
-          '<p>ADD, SUBTRACT, MULTIPLY, and DIVIDE each read and write one field. Watch ' +
-          'the direction of DIVIDE: <code class="inl">DIVIDE 4 INTO #N</code> divides ' +
-          '<b>the field</b> by four.</p>',
+          '<p>ADD, SUBTRACT and DIVIDE all put the result in their <b>second</b> operand, ' +
+          'the field you name last. <code class="inl">DIVIDE 5 INTO #N</code> divides ' +
+          '<b>the field</b> by five and leaves the answer there.</p>' +
+          '<p><code class="inl">MULTIPLY</code> is the odd one out: ' +
+          '<code class="inl">MULTIPLY #N BY 3</code> puts the result in ' +
+          '<code class="inl">#N</code>, the <b>first</b> operand. That is why a constant ' +
+          'can go second but never first, and why ' +
+          '<code class="inl">MULTIPLY 3 BY #N</code> is not valid: there would be nowhere ' +
+          'for the answer to go.</p>',
         code:
           "DEFINE DATA LOCAL\n" +
           "1 #N (N7.2)\n" +
@@ -316,10 +326,10 @@ export const LESSONS = [
           'a number when it asks.</p>',
         code:
           "DEFINE DATA LOCAL\n" +
-          "1 #AGE (N3)\n" +
+          "1 #SERVICE (N3)\n" +
           "END-DEFINE\n" +
-          "INPUT 'How many years of service?' #AGE\n" +
-          "IF #AGE >= 25\n" +
+          "INPUT 'How many years of service?' #SERVICE\n" +
+          "IF #SERVICE >= 25\n" +
           "WRITE 'Eligible for the long service award.'\n" +
           "ELSE\n" +
           "WRITE 'Not yet eligible.'\n" +
@@ -485,8 +495,13 @@ export const LESSONS = [
       {
         title: 'A loop with no way out',
         body:
-          '<p>Run this deliberately. A REPEAT with nothing to stop it would hang a real ' +
-          'session; here it stops itself and tells you how to fix it.</p>' +
+          '<p>Run this deliberately. Here the interpreter stops itself and tells you how ' +
+          'to fix it, because this loop is running in your own browser tab.</p>' +
+          '<p>A real system has its own governors rather than spinning for ever: ' +
+          '<code class="inl">MADIO</code> caps database calls between screen I/Os, ' +
+          '<code class="inl">MAXCL</code> caps program calls, and ' +
+          '<code class="inl">LT</code> caps records read. You would hit a limit and get an ' +
+          'error, not a frozen terminal. The bug is still yours to fix.</p>' +
           '<div class="warn">This is the single most common beginner mistake with ' +
           'REPEAT. Give every REPEAT either an ESCAPE or an UNTIL condition.</div>',
         code:
@@ -545,8 +560,9 @@ export const LESSONS = [
       {
         title: 'A database loop IS a loop',
         body:
-          '<p>Before anything else: Natural calls READ and FIND <b>database loops</b>, as ' +
-          'opposed to the non-database loops (FOR, REPEAT) you met in module 7. They are ' +
+          '<p>Before anything else: Natural calls READ, FIND and HISTOGRAM <b>database ' +
+          'loops</b>, as opposed to the non-database loops (FOR, REPEAT) you met in ' +
+          'module 7. You will meet HISTOGRAM at the end of this module. They are ' +
           'the same idea applied to records. Everything you learned about ESCAPE still ' +
           'applies.</p>',
       },
@@ -614,7 +630,12 @@ export const LESSONS = [
         title: 'HISTOGRAM counts values',
         body:
           '<p>A histogram walks the distinct values of one field and tells you how many ' +
-          'records carry each one, without reading the records themselves.</p>',
+          'records carry each one, without reading the records themselves. It is the third ' +
+          '<b>database loop</b>, alongside READ and FIND.</p>' +
+          '<p>It only works on a <b>descriptor</b>, which is a field the database has ' +
+          'indexed. That is not a restriction of the statement so much as the reason it is ' +
+          'fast: HISTOGRAM reads the index and never touches a record. Point it at an ' +
+          'unindexed field and it will be rejected.</p>',
         code:
           "DEFINE DATA LOCAL\n" +
           "1 EMPLOYEES-VIEW VIEW OF EMPLOYEES\n" +
@@ -706,14 +727,24 @@ export const LESSONS = [
           "END",
       },
       {
-        title: 'Forget END TRANSACTION and lose the work',
+        title: 'Forget END TRANSACTION and see what is left behind',
         body:
           '<p>This is the classic beginner bug, and it is worth making on purpose. The ' +
           'update below happens, and the program can even see it, but it is never ' +
-          'committed. The second FIND runs after a fresh start and shows the original ' +
-          'value.</p>' +
-          '<div class="warn">On a real system an uncommitted transaction is backed out ' +
-          'when the program ends. The work is simply gone.</div>',
+          'committed. Nothing here persists past the run.</p>' +
+          '<p><b>What a real system does is worse than losing it.</b> The end of a program ' +
+          'is not a transaction boundary. Under the default setting of the ' +
+          '<code class="inl">ETEOP</code> profile parameter, which is <b>OFF</b>, Natural ' +
+          'issues no commit when a program ends, precisely so one logical transaction can ' +
+          'span several programs. Your update sits pending and the records stay held, ' +
+          'which means other users are now waiting on you.</p>' +
+          '<p>Where your site sets <code class="inl">ETEOP=ON</code>, Natural commits at ' +
+          'the end of the program, which is the opposite problem: work you never meant to ' +
+          'keep becomes permanent.</p>' +
+          '<div class="warn">A backout is something that has to happen: you write ' +
+          '<code class="inl">BACKOUT TRANSACTION</code>, the session fails, or the operator ' +
+          'interrupts with <code class="inl">%%</code> or CLEAR and Natural issues one. ' +
+          'Ending a program is none of those. Never rely on it to tidy up after you.</div>',
         code:
           "DEFINE DATA LOCAL\n" +
           "1 EMPLOYEES-VIEW VIEW OF EMPLOYEES\n" +
@@ -733,7 +764,12 @@ export const LESSONS = [
         body:
           '<p>DELETE removes the record the loop is holding. ' +
           '<code class="inl">BACKOUT TRANSACTION</code> throws away everything since the ' +
-          'last commit, which is how you undo deliberately.</p>',
+          'last commit, which is how you undo deliberately.</p>' +
+          '<p>Both boundary statements do a second job that is easy to miss: they ' +
+          '<b>release the records the transaction was holding</b>. UPDATE and DELETE take ' +
+          'a record in exclusive hold, and it stays held until you commit or back out. A ' +
+          'program that updates and then sits waiting for input is holding a lock the ' +
+          'whole time.</p>',
         code:
           "DEFINE DATA LOCAL\n" +
           "1 EMPLOYEES-VIEW VIEW OF EMPLOYEES\n" +
@@ -784,6 +820,15 @@ export const LESSONS = [
           "WRITE 'Total payroll:' #TOTAL\n" +
           "COMPUTE ROUNDED #RAISE = #TOTAL * 0.035\n" +
           "WRITE 'Raise budget: ' #RAISE\n" +
+          "FIND EMPLOYEES-VIEW WITH COUNTRY = 'UK' SORTED BY NAME WHERE SALARY < 40000\n" +
+          "WRITE 'Raising' NAME 'from' SALARY\n" +
+          "ADD 1500 TO SALARY\n" +
+          "UPDATE\n" +
+          "END-FIND\n" +
+          "END TRANSACTION\n" +
+          "FIND EMPLOYEES-VIEW WITH COUNTRY = 'UK' SORTED BY NAME\n" +
+          "WRITE 'Now on file:' NAME SALARY\n" +
+          "END-FIND\n" +
           "END",
       },
     ],
@@ -818,7 +863,14 @@ export const LESSONS = [
           'INPUT, so the validation loop is built into the statement. That is why Natural ' +
           'programs that read screens tend to be shorter than you would expect.</p>' +
           '<div class="tip">A REINPUT with no INPUT above it is an error, because there ' +
-          'is nothing to go back to.</div>',
+          'is nothing to go back to.</div>' +
+          '<p><b>Two restrictions that will catch you.</b> REINPUT is a screen statement, ' +
+          'so it is invalid in batch: a batch run gets NAT1109. And you cannot put a ' +
+          '<code class="inl">WRITE</code> or <code class="inl">DISPLAY</code> between the ' +
+          'INPUT and the REINPUT that sends control back to it; that is NAT1108.</p>' +
+          '<p>The second one bites hard, because after eight modules of WRITE the natural ' +
+          'instinct is to print the problem and then re-ask. Put the message in the REINPUT ' +
+          'itself, which is what the message operand is for.</p>',
       },
     ],
   },
@@ -878,9 +930,13 @@ export const LESSONS = [
       {
         title: 'Subroutines can call subroutines',
         body:
-          '<p>Nesting works, and each PERFORM returns to its own caller. Try to write a ' +
-          'subroutine that performs itself and the interpreter will stop you rather than ' +
-          'letting the program run out of stack.</p>',
+          '<p>Nesting works, and each PERFORM returns to its own caller.</p>' +
+          '<p>A subroutine <b>may perform itself</b>. Natural permits recursion, and the ' +
+          'documentation says so outright. Ending the recursion is your job: nothing in ' +
+          'the language stops a routine that always calls itself.</p>' +
+          '<div class="tip">This interpreter gives up after 256 nested calls so a runaway ' +
+          'routine cannot lock up your browser tab. That cap is ours, not a rule of the ' +
+          'language. Do not read it as "Natural forbids recursion".</div>',
         code:
           "DEFINE DATA LOCAL\n" +
           "1 #N (N5)\n" +
@@ -924,8 +980,11 @@ export const LESSONS = [
   {
     title: '12. Data areas',
     lede:
-      'Where a field lives decides who can see it. A parameter data area is the interface ' +
-      'between two objects.',
+      'Where a field lives decides who can see it. LOCAL and PARAMETER are the two clauses ' +
+      'you will write constantly, and each also exists as a separate saved object: an LDA ' +
+      'for local data, a PDA for parameters, and a GDA for data shared across a whole ' +
+      'application. This module teaches the clauses; the objects are the same idea stored ' +
+      'under a name so several programs can share one definition.',
     steps: [
       {
         title: 'LOCAL data belongs to one object',
@@ -976,8 +1035,10 @@ export const LESSONS = [
   {
     title: '13. Subprograms and CALLNAT',
     lede:
-      'A subprogram is a separate object with its own data. CALLNAT runs it and passes ' +
-      'values through its parameter list.',
+      'A subprogram is a separate object with its own data. CALLNAT runs it and connects ' +
+      'the caller\'s fields to its parameter list. That connection is by reference, not by ' +
+      'copy, which is why a subprogram can change what you passed it and why the formats ' +
+      'have to match exactly.',
     steps: [
       {
         title: 'CALLNAT passes values in and results back',
