@@ -1,6 +1,6 @@
 # Project State: course-natural-the-mainframe-language
 
-Phase: 3.3 Promote (Tier 2 shipped: modules 1 to 15 complete)
+Phase: 3.3 Promote (content audit remediation shipped; modules 1 to 15 complete)
 Approved: 2026-07-22T18:45:25Z by Michael (sha256:135613afc4c9)
 
 ## Lifecycle
@@ -60,7 +60,14 @@ spec section 8 (v1 scope depth, confirm Rust, product intent, public-repo timing
   and the open `rust_decimal` wasm question from the gotchas doc.
 - Verification: `scripts/verify.sh` is the gate, enforced by a pre-push hook.
   No hosted CI by decision. Install the hook on a fresh clone with
-  `scripts/install-hooks.sh`.
+  `scripts/install-hooks.sh`. The gate now has six stages: the added one extracts every
+  code sample from `web/lessons.js` so `tests/lesson_samples.rs` can run the source a
+  learner is actually shown. Nothing had been checking published samples before, which is
+  how a course full of invalid syntax shipped.
 
 ## Phase History
 - 2026-07-19 repo initialized, VTT model extracted, research spikes launched
+- 2026-08-04 content audit across all 15 lessons (8 adversarial spikes, ~160 claims).
+  84 confirmed, 26 refuted, 28 misleading. All 11 remediation items closed and promoted
+  to main. Highest-severity finding: DEFINE MAP, END-MAP, TEXT and FIELD do not exist in
+  Natural, so lessons 14 and 15 were rebuilt on real map objects.

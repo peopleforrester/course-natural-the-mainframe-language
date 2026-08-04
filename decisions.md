@@ -667,3 +667,35 @@ One pre-existing hit fixed: a verification research file used a horizontal ellip
 mark an elision inside a quotation. That character was the agent's own punctuation rather
 than the source's, so normalizing it to three periods changes no quoted text and avoids
 carving out an exception for a whole directory.
+
+## 2026-08-04T00:00:00Z · 2.2 · Content audit remediation, all 11 items
+
+An eight-spike adversarial audit of all 15 lessons checked roughly 160 claims against the
+official Software AG documentation: 84 confirmed, 26 refuted, 28 misleading. Full findings
+in `tmp/content-audit/REMEDIATION-PLAN.md`.
+
+Four decisions worth recording, because each chose between competing goods:
+
+1. **Maps become library objects.** `DEFINE MAP` does not exist; the DEFINE statements are
+   CLASS, DATA, FUNCTION, PRINTER, PROTOTYPE, SUBROUTINE, WINDOW and WORK FILE. The
+   alternatives were cutting the map lessons or relabelling the invented syntax. Chose to
+   make maps separate objects named as `INPUT USING MAP 'NAME'`, so every line on the
+   program side is real Natural, and to disclose that the layout notation is ours because a
+   real map is drawn in the map editor and has no hand-written form.
+2. **The page title is disclosed, not simulated.** Natural emits a default title per page
+   unless NOTITLE. Simulating it would put the current time in every lesson's output, make
+   runs differ, and break the exercises that count lines. NOTITLE and NOHDR are accepted so
+   learner code is real; lesson 2 states the divergence on its own page.
+3. **Reserved-word checking applies to subroutine names only.** The documentation says
+   reserved keywords are "strongly recommended" against for variables, which is advisory.
+   Enforcing it for variables would reject valid programs, so the check is limited to
+   subroutine names, where the conflict is real.
+4. **Lesson code is now tested.** `tests/lesson_samples.rs` runs every published sample
+   through the interpreter, and the gate regenerates its fixture from `web/lessons.js`
+   first. This is the process fix: the individual defects were symptoms of nothing ever
+   having checked the course's own source.
+
+One audit finding was withdrawn on measurement (WRITE field padding was already correct,
+and the finding cited a file that does not exist), and two spacing findings were false
+positives from agents that stripped HTML tags without substituting whitespace.
+
