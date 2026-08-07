@@ -11,7 +11,7 @@ per-student cost. The learner writes real Natural and it executes in their own b
 ## Status
 
 **Tiers 1 and 2 are complete and shipped**: modules 1 through 15, an interpreter that
-executes them, and the browser front end that delivers them. 312 tests pass, and every
+executes them, and the browser front end that delivers them. 314 tests pass, and every
 code sample the course publishes is one of them.
 
 | Module | Covered |
@@ -35,7 +35,7 @@ code sample the course publishes is one of them.
 ## Running it
 
 ```bash
-cargo test --workspace                 # 312 tests
+cargo test --workspace                 # 314 tests
 cargo run -p natural-cli -- examples/capstone.nat
 
 wasm-pack build crates/natural-wasm --target web --out-dir ../../web/pkg --release
