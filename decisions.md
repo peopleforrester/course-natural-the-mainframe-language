@@ -672,7 +672,7 @@ carving out an exception for a whole directory.
 
 An eight-spike adversarial audit of all 15 lessons checked roughly 160 claims against the
 official Software AG documentation: 84 confirmed, 26 refuted, 28 misleading. Full findings
-in `tmp/content-audit/REMEDIATION-PLAN.md`.
+in `docs/content-audit-2026-08.md`.
 
 Four decisions worth recording, because each chose between competing goods:
 

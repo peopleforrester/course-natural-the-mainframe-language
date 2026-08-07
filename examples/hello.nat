@@ -1,4 +1,4 @@
 WRITE 'Hello World!'
-WRITE
+SKIP 1
 WRITE 'Natural runs here.'
 END

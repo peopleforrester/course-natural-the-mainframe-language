@@ -665,6 +665,12 @@ impl Interpreter {
 
                 Statement::Ignore => {}
 
+                Statement::Skip { lines } => {
+                    for _ in 0..lines {
+                        self.pending_output.push_back(String::new());
+                    }
+                }
+
                 Statement::SetKey { keys, line: _ } => {
                     if keys.is_empty() {
                         self.all_keys_sensitized = true;

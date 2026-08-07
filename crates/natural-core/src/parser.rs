@@ -133,6 +133,11 @@ pub enum Statement {
     /// Do nothing, deliberately. Natural has no empty statement, so a clause that should
     /// take no action says IGNORE rather than being left blank.
     Ignore,
+    /// Advance the report by `lines` blank lines. This is the documented way to leave a
+    /// gap, which is why a bare WRITE is rejected rather than quietly doing it.
+    Skip {
+        lines: usize,
+    },
     /// Sensitize AID keys. An unsensitized PF key delivers ENTR to the program, so without
     /// this a test of *PF-KEY for PF3 can never be true.
     SetKey {
@@ -849,6 +854,24 @@ fn parse_line(
         }
         "IGNORE" => {
             program.statements.push(Statement::Ignore);
+            Ok(false)
+        }
+        "SKIP" => {
+            // SKIP with no count advances one line.
+            let lines =
+                match tokens.get(1).and_then(word_text) {
+                    Some(count) => count.parse::<usize>().map_err(|_| {
+                        NaturalError::UnknownStatement {
+                            name: format!(
+                                "SKIP followed by '{count}'. SKIP takes a number of lines, as in \
+                             SKIP 1"
+                            ),
+                            line,
+                        }
+                    })?,
+                    None => 1,
+                };
+            program.statements.push(Statement::Skip { lines });
             Ok(false)
         }
         "SET"

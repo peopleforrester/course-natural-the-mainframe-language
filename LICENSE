@@ -1,0 +1,31 @@
+Copyright (c) 2026 Michael Forrester. All rights reserved.
+
+This repository contains the source of a commercial training course. It is
+published so the engineering can be read and evaluated, not to grant a licence
+to it.
+
+You may read this source, and you may quote short excerpts with attribution for
+commentary, review, or teaching about the project.
+
+Without prior written permission you may not:
+
+  - use the course content, lesson text, or exercises to deliver training,
+    whether paid or unpaid;
+  - redistribute this repository or a substantial part of it;
+  - create derivative courses or course materials from it.
+
+The interpreter, the tooling, and the techniques are offered as a portfolio of
+engineering work. If you want to use any part of this commercially, ask.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHOR BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+Third-party components keep their own licences:
+
+  - xterm.js (web/vendor/) is MIT, (c) The xterm.js authors.
+  - The 3270 font (web/fonts/) is BSD-3-Clause and OFL-1.1-RFN,
+    (c) Ricardo Banffy, derived from the x3270 font.

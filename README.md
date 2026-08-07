@@ -11,7 +11,8 @@ per-student cost. The learner writes real Natural and it executes in their own b
 ## Status
 
 **Tiers 1 and 2 are complete and shipped**: modules 1 through 15, an interpreter that
-executes them, and the browser front end that delivers them. 270 tests pass.
+executes them, and the browser front end that delivers them. 312 tests pass, and every
+code sample the course publishes is one of them.
 
 | Module | Covered |
 |--------|---------|
@@ -28,13 +29,13 @@ executes them, and the browser front end that delivers them. 270 tests pass.
 | 11. Subroutines | `DEFINE SUBROUTINE`, `PERFORM`, nesting |
 | 12. Data areas | LOCAL versus PARAMETER, and what each one scopes |
 | 13. Subprograms | `CALLNAT`, parameter passing, object isolation |
-| 14. Maps | `DEFINE MAP`, `INPUT USING MAP`, attribute bytes, AID keys |
+| 14. Maps | `INPUT USING MAP`, `SET KEY`, attribute bytes, AID keys |
 | 15. Capstone | a maintenance program combining all of it |
 
 ## Running it
 
 ```bash
-cargo test --workspace                 # 270 tests
+cargo test --workspace                 # 312 tests
 cargo run -p natural-cli -- examples/capstone.nat
 
 wasm-pack build crates/natural-wasm --target web --out-dir ../../web/pkg --release
@@ -53,9 +54,11 @@ by decision.
 | `crates/natural-cli` | Native runner, used for development and testing |
 | `crates/natural-wasm` | The browser boundary, a resumable session |
 | `web/` | The VTT front end, lessons, vendored xterm.js and 3270 font |
+| `examples/` | Standalone Natural programs the CLI runs, exercised by the test suite |
 | `research/` | Nine dated research spikes, plus their adversarial verification |
 | `spec/` | The approved course specification and Tier 1 lesson outline |
 | `docs/gotchas-rust-wasm.md` | Required reading before any Rust or wasm work |
+| `docs/content-audit-2026-08.md` | The content audit, its findings, and what was done |
 
 ## The two constraints that shaped everything
 
@@ -76,11 +79,32 @@ removes the licensing wall and drives marginal delivery cost to zero.
 
 ## Accuracy
 
-Every language behavior the course teaches is verified against official Software AG
-documentation, and the research behind it was adversarially re-checked. The verification
-pass in `research/verification/` corrected real errors, including three retired platforms
-that would have been taught as current and a misquoted workforce statistic whose source
-argues the opposite of how it was being used.
+Every language behavior the course teaches is checked against official Software AG
+documentation, and both the research and the finished lessons were then adversarially
+re-checked.
+
+The research pass corrected three retired platforms that would have been taught as current
+and a misquoted workforce statistic whose source argues the opposite of how it was being
+used. Those corrections are in `research/verification/`.
+
+The content pass in August 2026 went further and checked roughly 160 individual claims
+across all fifteen lessons. It refuted 26 of them. The worst was invented syntax: `DEFINE
+MAP` does not exist in Natural, and two lessons had been built on it. Others would not have
+compiled, including object names past the eight-character limit and a `FIND` whose clauses
+were in the undocumented order. One was simply false, and it was a module's central point:
+the end of a program is not a transaction boundary. `docs/content-audit-2026-08.md` records
+the lot.
+
+What made that possible to miss was that nothing tested the course's own source. It does
+now: `crates/natural-core/tests/lesson_samples.rs` runs every published sample through the
+interpreter, and the verification gate regenerates its fixture from the lesson content
+first. Three lessons teach by failing on purpose, and they are asserted to keep failing.
+
+Two divergences from production Natural remain, deliberately, and the course states each
+one on the page where it happens. The sample `EMPLOYEES` file is flattened, where the real
+demo file nests salary in a repeating group. And the source format for maps is this
+project's own, because a real map is drawn in a screen editor and has no hand-written form
+to copy; the statements that use a map are real.
 
 Where documentation could not settle a detail, the code says so at the point of the
 decision rather than implying certainty.
