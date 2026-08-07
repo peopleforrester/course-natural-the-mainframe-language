@@ -46,6 +46,14 @@ cd web && python3 -m http.server 8777  # then open http://localhost:8777/
 check. `scripts/install-hooks.sh` wires it to a pre-push hook. This repo runs no hosted CI
 by decision.
 
+`scripts/e2e-walkthrough.mjs` drives every lesson step in a real browser and asserts on the
+terminal, including the map suspension and the AID keys. It needs Chrome, so it is opt-in
+rather than part of the gate:
+
+```bash
+node scripts/e2e-walkthrough.mjs      # 15 lessons, 44 runnable steps
+```
+
 ## Repository layout
 
 | Path | What lives here |

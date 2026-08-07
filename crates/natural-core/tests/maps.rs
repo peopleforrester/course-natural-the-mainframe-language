@@ -484,3 +484,81 @@ fn the_screen_type_is_reusable_outside_a_map() {
     assert_eq!(screen.columns, 80);
     assert_eq!(screen.render().len(), 24);
 }
+
+// ---- Read Modified ----
+
+#[test]
+fn an_untouched_field_is_not_transmitted_and_keeps_its_value() {
+    // A real 3270 returns only the fields whose modified data tag is set. An untouched
+    // numeric field must therefore not arrive as an empty string, which is what made the
+    // browser report that '' is not a valid number.
+    let source = "\
+DEFINE DATA LOCAL
+1 #USER (A10)
+1 #AMOUNT (N7)
+END-DEFINE
+MOVE 500 TO #AMOUNT
+INPUT USING MAP 'M11B'
+WRITE 'user' #USER 'amount' #AMOUNT
+END";
+    let mut library = maps();
+    library.add_map(
+        "M11B",
+        "FIELD 5 5 'User:' #USER\nFIELD 7 5 'Amount:' #AMOUNT",
+    );
+    let mut interp =
+        Interpreter::new(parse_program(source).expect("should parse")).with_library(library);
+    let Step::NeedsScreen(_) = interp.step().expect("should suspend") else {
+        panic!("expected a screen");
+    };
+    // Only #USER was typed into, so only #USER comes back.
+    interp
+        .provide_screen(&[("#USER".to_string(), "JONES".to_string())], "ENTR")
+        .expect("an untouched field must not be rejected");
+
+    let mut lines = Vec::new();
+    while let Ok(step) = interp.step() {
+        match step {
+            Step::Output(line) => lines.push(line),
+            _ => break,
+        }
+    }
+    let text = lines.join(" ");
+    assert!(
+        text.contains("JONES"),
+        "the typed value should arrive, got: {text}"
+    );
+    assert!(
+        text.contains("500"),
+        "an untouched numeric field keeps what it held, got: {text}"
+    );
+}
+
+#[test]
+fn a_bad_screen_value_names_the_field_rather_than_a_line_number() {
+    let source = "\
+DEFINE DATA LOCAL
+1 #AMOUNT (N7)
+END-DEFINE
+INPUT USING MAP 'M12B'
+END";
+    let mut library = maps();
+    library.add_map("M12B", "FIELD 5 5 'Amount:' #AMOUNT");
+    let mut interp =
+        Interpreter::new(parse_program(source).expect("should parse")).with_library(library);
+    let Step::NeedsScreen(_) = interp.step().expect("should suspend") else {
+        panic!("expected a screen");
+    };
+    let err = interp
+        .provide_screen(&[("#AMOUNT".to_string(), "NOTANUMBER".to_string())], "ENTR")
+        .expect_err("a non-numeric value should be rejected");
+    let message = err.to_string();
+    assert!(
+        !message.contains("Line 0"),
+        "screen input has no source line, got: {message}"
+    );
+    assert!(
+        message.contains("#AMOUNT"),
+        "the message should name the field, got: {message}"
+    );
+}

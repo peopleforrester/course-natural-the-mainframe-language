@@ -35,6 +35,8 @@ const state = {
   /** The map on screen: its entry fields, the values typed, and which field has focus. */
   screen: null,
   screenValues: [],
+  /** Per-field modified data tag. Only tagged fields are transmitted, as on a real 3270. */
+  screenTouched: [],
   screenIndex: 0,
   /** Everything the current run produced, so an exercise check can inspect it. */
   transcript: [],
@@ -211,6 +213,7 @@ function runSource(source) {
   state.running = true;
   state.screen = null;
   state.screenValues = [];
+  state.screenTouched = [];
   state.screenIndex = 0;
   state.transcript = [];
   state.lastError = null;
@@ -244,6 +247,10 @@ function presentScreen(rendered) {
       return { name, row: Number(r), column: Number(c), width: Number(width), kind };
     });
   state.screenValues = state.screen.map(() => '');
+  // The modified data tag, one per field. A 3270 sets it when the operator types into a
+  // field, and Read Modified returns only the fields whose tag is set. Lesson 14 teaches
+  // this, so the terminal has to actually do it.
+  state.screenTouched = state.screen.map(() => false);
   state.screenIndex = 0;
   state.awaitingInput = false;
   setOia('4  A', 'Input Inhibited: waiting');
@@ -264,8 +271,13 @@ function focusScreenField() {
 /** Sends the completed screen back to the interpreter with the AID key pressed. */
 function submitScreen(aid) {
   if (!state.screen) return;
+  // Read Modified: send only the fields the operator touched. Sending an untouched field
+  // as an empty string made a numeric field reject '' as a value, which is a diagnostic no
+  // learner could act on and which a real terminal would never produce.
   const payload = state.screen
-    .map((f, i) => f.name + '=' + state.screenValues[i])
+    .map((f, i) => ({ f, i }))
+    .filter(({ i }) => state.screenTouched[i])
+    .map(({ f, i }) => f.name + '=' + state.screenValues[i])
     .join('\n');
   state.screen = null;
   els.aidbar.style.display = 'none';
@@ -302,6 +314,7 @@ term.onData((data) => {
         if (state.screenValues[state.screenIndex].length > 0) {
           state.screenValues[state.screenIndex] =
             state.screenValues[state.screenIndex].slice(0, -1);
+          state.screenTouched[state.screenIndex] = true;
           term.write('\b \b');
         }
         continue;
@@ -314,6 +327,7 @@ term.onData((data) => {
       }
       if (state.screenValues[state.screenIndex].length >= field.width) continue;
       state.screenValues[state.screenIndex] += ch;
+      state.screenTouched[state.screenIndex] = true;
       term.write(field.kind === 'hidden' ? '*' : ch);
     }
     return;

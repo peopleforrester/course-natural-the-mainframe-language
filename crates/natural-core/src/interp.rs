@@ -965,9 +965,24 @@ impl Interpreter {
             let Some(format) = self.fields.get(&name).map(|f| f.format.clone()) else {
                 continue;
             };
-            let value = parse_input_value(text, &format, &name, 0)?;
-            let coerced = coerce(value, &format, &name, 0)?;
-            self.assign(&name, coerced, 0)?;
+            // A screen value has no source line, so a line-numbered diagnostic would be
+            // inventing one. Rewrite it to name the field instead.
+            let on_screen = |error: NaturalError| match error {
+                NaturalError::InvalidInput {
+                    text,
+                    name,
+                    expected,
+                    ..
+                } => NaturalError::InvalidScreenInput {
+                    text,
+                    name,
+                    expected,
+                },
+                other => other,
+            };
+            let value = parse_input_value(text, &format, &name, 0).map_err(on_screen)?;
+            let coerced = coerce(value, &format, &name, 0).map_err(on_screen)?;
+            self.assign(&name, coerced, 0).map_err(on_screen)?;
         }
 
         // A key the program never sensitized arrives as ENTR. Without this the PF3 branch
