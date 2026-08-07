@@ -5,15 +5,22 @@ was established, because the individual corrections are only meaningful next to 
 they replaced. The process fix that came out of it is `crates/natural-core/tests/lesson_samples.rs`,
 which runs every published sample through the interpreter on each build.
 
-Audit date: 2026-08-04. Seven adversarial spikes across all 15 lessons, 56 steps,
-43 code blocks, 6 exercises. Roughly 140 claims checked.
+Audit date: 2026-08-04. Seven adversarial passes across all 15 lessons, 56 steps,
+43 code blocks and 6 exercises. The per-pass verdict tables are committed beside this file
+in `docs/content-audit/`, and the counts below are rows in those tables, so every number
+here can be checked by counting.
 
 | Verdict | Count |
 |---|---|
-| CONFIRMED | 84 |
-| REFUTED | 23 |
-| MISLEADING | 23 |
-| UNVERIFIED | 10 |
+| CONFIRMED | 79 |
+| MISLEADING | 20 |
+| REFUTED | 15 |
+| UNVERIFIED | 4 |
+| **Total claims recorded** | **118** |
+
+Each pass also reported findings in prose beyond its table, which is where the invented
+`DEFINE MAP` syntax and the interpreter defects were raised. Those are written up below but
+are not counted in the 118, because only the table rows are individually checkable.
 
 ## The headline
 

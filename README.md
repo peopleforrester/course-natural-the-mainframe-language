@@ -97,8 +97,10 @@ The research pass corrected three retired platforms that would have been taught 
 and a misquoted workforce statistic whose source argues the opposite of how it was being
 used. Those corrections are in `research/verification/`.
 
-The content pass in August 2026 went further and checked roughly 160 individual claims
-across all fifteen lessons. It refuted 26 of them. The worst was invented syntax: `DEFINE
+The content pass in August 2026 went further: seven adversarial passes over all fifteen
+lessons, recording 118 individual claims with a source for each. It refuted 15 outright and
+marked 20 more misleading. The verdict tables are committed in `docs/content-audit/`, so
+those counts are rows you can go and count. The worst was invented syntax: `DEFINE
 MAP` does not exist in Natural, and two lessons had been built on it. Others would not have
 compiled, including object names past the eight-character limit and a `FIND` whose clauses
 were in the undocumented order. One was simply false, and it was a module's central point:

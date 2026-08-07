@@ -670,9 +670,16 @@ carving out an exception for a whole directory.
 
 ## 2026-08-04T00:00:00Z · 2.2 · Content audit remediation, all 11 items
 
-An eight-spike adversarial audit of all 15 lessons checked roughly 160 claims against the
-official Software AG documentation: 84 confirmed, 26 refuted, 28 misleading. Full findings
-in `docs/content-audit-2026-08.md`.
+A seven-pass adversarial audit of all 15 lessons recorded 118 claims against the official
+Software AG documentation: 79 confirmed, 20 misleading, 15 refuted, 4 unverified. The
+verdict tables are committed in `docs/content-audit/` and the write-up is in
+`docs/content-audit-2026-08.md`.
+
+A correction worth recording, because it is the same failure the audit was about: the first
+tallies quoted for this audit ("roughly 160 claims, 26 refuted") came from grepping the
+verdict words, which counts every mention in explanatory prose as well as the verdict
+itself. Counting table rows gives the numbers above. The wrong figures reached a release
+note, the README and a draft post before anyone counted.
 
 Four decisions worth recording, because each chose between competing goods:
 

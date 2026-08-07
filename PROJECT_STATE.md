@@ -67,7 +67,10 @@ spec section 8 (v1 scope depth, confirm Rust, product intent, public-repo timing
 
 ## Phase History
 - 2026-07-19 repo initialized, VTT model extracted, research spikes launched
-- 2026-08-04 content audit across all 15 lessons (8 adversarial spikes, ~160 claims).
-  84 confirmed, 26 refuted, 28 misleading. All 11 remediation items closed and promoted
-  to main. Highest-severity finding: DEFINE MAP, END-MAP, TEXT and FIELD do not exist in
-  Natural, so lessons 14 and 15 were rebuilt on real map objects.
+- 2026-08-04 content audit across all 15 lessons (7 adversarial passes, 118 recorded
+  claims). 79 confirmed, 20 misleading, 15 refuted, 4 unverified. All 11 remediation items
+  closed and promoted to main. Highest-severity finding: DEFINE MAP, END-MAP, TEXT and
+  FIELD do not exist in Natural, so lessons 14 and 15 were rebuilt on real map objects.
+- 2026-08-07 corrected the audit tallies everywhere they appeared. The earlier figures
+  came from a word grep rather than a row count. Verdict tables now committed under
+  `docs/content-audit/` so the counts are checkable.
