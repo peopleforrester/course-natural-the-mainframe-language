@@ -1,5 +1,7 @@
 # Natural: The Mainframe Language (Interactive Course)
 
+![A 3270 terminal glowing green in a dark machine room](assets/hero.png)
+
 An interactive, browser-based course teaching the **Natural** programming language, the
 Software AG 4GL built as the native language of the ADABAS database and still running
 payroll, benefits, and licensing systems in government and insurance.
