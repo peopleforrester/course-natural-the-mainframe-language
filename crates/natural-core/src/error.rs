@@ -62,6 +62,16 @@ pub enum NaturalError {
     #[error("Line {line}: {feature} is not available yet in this course build.")]
     NotYetSupported { feature: String, line: usize },
 
+    #[error(
+        "The value '{text}' typed into {name} is not valid: that field holds {expected}. \
+         Correct it on the screen and transmit again."
+    )]
+    InvalidScreenInput {
+        text: String,
+        name: String,
+        expected: String,
+    },
+
     #[error("Line {line}: '{text}' is not a valid value for '{name}', which holds {expected}.")]
     InvalidInput {
         text: String,
