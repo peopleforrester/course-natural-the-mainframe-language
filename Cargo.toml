@@ -4,7 +4,8 @@ members = ["crates/natural-core", "crates/natural-cli", "crates/natural-wasm"]
 
 [workspace.package]
 edition = "2024"
-license = "UNLICENSED"
+license-file = "LICENSE"
+# Members inherit this; see LICENSE for the terms.
 publish = false
 
 # Binary size is user-facing on a course page, and Natural-level errors are always

@@ -1,6 +1,7 @@
-# CLAUDE.md
+# Agent instructions
 
-Project instructions for `course-natural-the-mainframe-language`.
+Project instructions for `course-natural-the-mainframe-language`, loaded by every
+coding agent. `CLAUDE.md` is a symlink to this file.
 
 ## What this is
 
