@@ -3,7 +3,7 @@
 Status: DRAFT for approval (Phase 1.2). Not yet approved. Do not begin construction
 until Michael seals the contract at Phase 1.3.
 
-Spec date: 2026-07-19. Grounded in the five research spikes in `research/` and the
+Spec date: 2026-07-19. Grounded in the five research spikes, held privately in `mrf-knowledge/natural-course-research/`, and the
 VTT extraction in `reference/vtt-model/`.
 
 ## 1. What this course is

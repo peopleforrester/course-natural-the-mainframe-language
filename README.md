@@ -65,7 +65,6 @@ node scripts/e2e-walkthrough.mjs      # 15 lessons, 44 runnable steps
 | `crates/natural-wasm` | The browser boundary, a resumable session |
 | `web/` | The VTT front end, lessons, vendored xterm.js and 3270 font |
 | `examples/` | Standalone Natural programs the CLI runs, exercised by the test suite |
-| `research/` | Nine dated research spikes, plus their adversarial verification |
 | `spec/` | The approved course specification and Tier 1 lesson outline |
 | `docs/gotchas-rust-wasm.md` | Required reading before any Rust or wasm work |
 | `docs/content-audit-2026-08.md` | The content audit, its findings, and what was done |
@@ -93,9 +92,10 @@ Every language behavior the course teaches is checked against official Software 
 documentation, and both the research and the finished lessons were then adversarially
 re-checked.
 
-The research pass corrected three retired platforms that would have been taught as current
-and a misquoted workforce statistic whose source argues the opposite of how it was being
-used. Those corrections are in `research/verification/`.
+An earlier research pass corrected three retired platforms that would have been taught as
+current, and a misquoted workforce statistic whose source argues the opposite of how it was
+being used. Those spikes are held privately, because one of them is this course's own market
+and pricing analysis and it is not something to publish beside the product it assesses.
 
 The content pass in August 2026 went further: seven adversarial passes over all fifteen
 lessons, recording 118 individual claims with a source for each. It refuted 15 outright and

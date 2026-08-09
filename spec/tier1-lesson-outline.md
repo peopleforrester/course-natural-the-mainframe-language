@@ -8,7 +8,7 @@ Every step in Tier 1 must be runnable in the browser WASM terminal. If a lesson 
 cannot execute, it does not belong in Tier 1.
 
 Syntax below follows the forms verified against official documentation in
-`research/02-training-curriculum.md`. Anything not yet verified verbatim is marked
+`mrf-knowledge/natural-course-research/02-training-curriculum.md` (held privately). Anything not yet verified verbatim is marked
 `[verify]` and must be confirmed against the statement reference before publishing.
 
 ## Interpreter capability tiers
@@ -155,7 +155,7 @@ declared format must raise a clear teaching error rather than silently wrapping.
 
 **Objective:** read a value from the learner, then branch on it.
 
-**Amended 2026-08-01** after curriculum validation (`research/09-curriculum-validation.md`).
+**Amended 2026-08-01** after curriculum validation (`mrf-knowledge/natural-course-research/09-curriculum-validation.md` (held privately)).
 `INPUT` was missing from Tier 1 entirely, which was a genuine defect for three reasons.
 Five of seven real published Natural syllabi teach user input in the first half. The
 vendor's own verified `DECIDE ON` and `DECIDE FOR` examples both open with `INPUT`. And
@@ -309,14 +309,14 @@ the modularization content that lives in Tier 2.
 
 ## Curriculum amendments from validation (2026-08-01)
 
-`research/09-curriculum-validation.md` compared this outline against seven real published
+`mrf-knowledge/natural-course-research/09-curriculum-validation.md` (held privately) compared this outline against seven real published
 sequences, including Software AG's own five-day "Natural Programming Fundamentals"
 instructor-led course with its eleven topics printed in order. The curriculum holds up and
 does not need rebuilding. These specific changes are required:
 
 1. **`INPUT` joins module 5.** Applied above. The largest single defect found.
 2. **The loops-versus-database ordering question is settled in this file's favor.** The
-   research doc (`research/02-training-curriculum.md`) puts loops at 9 and database at 7;
+   research doc (`mrf-knowledge/natural-course-research/02-training-curriculum.md` (held privately)) puts loops at 9 and database at 7;
    this outline puts loops at 7 and database at 8. Keep this outline's order and amend the
    research doc. Raw counts across syllabi favor database-first five to two, but the split
    sorts cleanly by source type: the only two sources that are *designed beginner

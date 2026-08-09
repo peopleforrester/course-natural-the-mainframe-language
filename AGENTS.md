@@ -15,7 +15,7 @@ compiled to WebAssembly**, entirely client-side with no backend.
 **`docs/gotchas-rust-wasm.md` is mandatory reading before any Rust or WASM work.**
 It records verified-current toolchain facts that model training data and older
 tutorials get wrong. Do not write build config, npm imports, or wasm glue from
-memory. The full reasoning is in `research/06-rust-wasm-toolchain.md`.
+memory. The full reasoning is in `mrf-knowledge/natural-course-research/06-rust-wasm-toolchain.md` (held privately).
 
 The highest-value traps, summarized (see the doc for the rest):
 
@@ -39,7 +39,7 @@ chosen in spike 06 to avoid `SharedArrayBuffer` and COOP/COEP headers). Recursiv
 *expression* evaluation is fine, because `INPUT` only occurs at statement level.
 This is not retrofittable.
 
-**Corollary added 2026-08-01, from `research/08-mainframe-emulators-3270.md`: the screen
+**Corollary added 2026-08-01, from `mrf-knowledge/natural-course-research/08-mainframe-emulators-3270.md` (held privately): the screen
 buffer must be a first-class concept in the interpreter's execution state from the start,
 not bolted on for Tier 2.** A Natural map read is a yield point exactly like `INPUT`, so
 the thing being suspended is a screen, not just a line of text. Model execution state so a
@@ -84,7 +84,7 @@ Binding until amended via `/prd-amend` and re-approval:
 
 ## Terminal look and feel
 
-Decided from `research/08-mainframe-emulators-3270.md`:
+Decided from `mrf-knowledge/natural-course-research/08-mainframe-emulators-3270.md` (held privately):
 
 - Use the **`rbanffy/3270font`** webfont (BSD-3-Clause and OFL-1.1-RFN). It descends from
   the x3270 font, which was hand-copied from a physical 3270, and it is the single

@@ -10,7 +10,7 @@ left, terminal right) adapted from the "Unleash an Agent, Watch It Burn"
 workshop. Private at first per Michael's instruction; opened only after the
 spec and initial content are ready.
 
-Decided: research lands in this repo's `research/` directory (course-specific
+Decided: research lands in a `research/` directory in this repo (course-specific
 and voluminous) rather than only as mrf-knowledge spikes. Framework-level
 findings (emulator/WASM feasibility) may also be promoted to a spike later.
 
@@ -90,7 +90,7 @@ to a repo-local pre-push hook by `scripts/install-hooks.sh`, so nothing reaches 
 remote without passing, and `--no-verify` remains the deliberate override.
 
 The gate found real em-dashes in `reference/vtt-model/vtt-architecture.md` on its first
-run, which the earlier manual scan had missed because it only covered `research/`.
+run, which the earlier manual scan had missed because it only covered the research directory.
 Revisit this decision if the repo goes public or gains outside contributors, where
 hosted CI checks pull requests from people who have not installed the hook.
 
@@ -127,7 +127,7 @@ now succeeds with `rust_decimal` in the tree, settling that open question.
 Michael asked for the research to be re-run and verified as factually as possible. Eight
 agents ran: five adversarial fact-checks instructed to REFUTE rather than confirm, plus
 three new spikes (07 output formatting, 08 mainframe emulators and 3270, 09 curriculum
-validation). Verdict tables are in `research/verification/`.
+validation). Verdict tables are in `mrf-knowledge/natural-course-research/verification/` (held privately).
 
 Material errors found and corrected, worst first:
 
@@ -706,3 +706,29 @@ One audit finding was withdrawn on measurement (WRITE field padding was already 
 and the finding cited a file that does not exist), and two spacing findings were false
 positives from agents that stripped HTML tags without substituting whitespace.
 
+
+## 2026-08-09T00:00:00Z · 3.3 · Contract amended: repo goes public, research stays private
+
+The approved contract (sha256:135613afc4c9) said the repo stays private through the build.
+The build is finished and v1.0.0 is released, so Michael authorised making it public.
+
+One carve-out, decided after the exposure was surfaced: the `research/` directory does not
+go with it. `03-academia-job-market.md` is this course's own go-to-market and pricing
+analysis, and it says plainly that the niche is thin and that the numbers do not support a
+product needing large enrollment. That is a fair internal assessment and a poor thing for a
+prospective buyer to read beside the product. Michael chose to hold the whole directory
+rather than only that spike, so the set stays intact and no gap needs explaining.
+
+The spikes are preserved at `mrf-knowledge/natural-course-research/` with a README stating
+why they live there. Every reference in this repo was rewritten to point at that location
+and marked as held privately.
+
+Removing the directory from HEAD was not sufficient. It was present in every prior commit,
+so a public repo would have served all nine spikes out of `git log`. The history was
+therefore rewritten with `git filter-repo --path research/ --invert-paths` and force-pushed
+to both branches. A complete pre-rewrite bundle is at
+`~/repos/_archive/backups/course-natural-pre-rewrite-2026-08-09.bundle`, verified as a
+complete history before the rewrite ran.
+
+Consequence worth recording: every commit SHA changed. The six SHAs quoted in
+mrf-engagement-orchestrator#59 no longer resolve and were updated on that issue.

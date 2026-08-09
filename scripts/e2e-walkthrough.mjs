@@ -1,7 +1,7 @@
 // ABOUTME: End-to-end walkthrough. Serves web/, drives every lesson step in a real Chrome,
 // ABOUTME: and asserts on the terminal buffer, because the DOM renderer does not paint headless.
 
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -14,12 +14,20 @@ const BASE = `http://127.0.0.1:${PORT}`;
 // Puppeteer is not a project dependency; this script is opt-in and resolves it from wherever
 // it is installed rather than adding a browser download to every clone.
 const require = createRequire(import.meta.url);
+
+// Resolve the global npm prefix rather than hardcoding one machine's layout.
+let globalPuppeteer = null;
+try {
+  const prefix = execFileSync('npm', ['root', '-g'], { encoding: 'utf8' }).trim();
+  if (prefix) globalPuppeteer = resolve(prefix, 'puppeteer');
+} catch {
+  /* npm may not be on PATH; the other candidates still apply */
+}
+
 let puppeteer;
-for (const candidate of [
-  'puppeteer',
-  '/home/michael/.npm-global/lib/node_modules/puppeteer',
-  process.env.PUPPETEER_PATH,
-].filter(Boolean)) {
+for (const candidate of [process.env.PUPPETEER_PATH, 'puppeteer', globalPuppeteer].filter(
+  Boolean,
+)) {
   try {
     puppeteer = require(candidate);
     break;

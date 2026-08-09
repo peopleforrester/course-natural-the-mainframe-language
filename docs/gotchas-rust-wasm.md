@@ -2,7 +2,7 @@
 
 Read this before writing code. Every item is a trap that older tutorials, blog
 posts, and model training data still teach the wrong way. Full reasoning and
-citations are in `research/06-rust-wasm-toolchain.md` (spike date 2026-07-22).
+citations are in `mrf-knowledge/natural-course-research/06-rust-wasm-toolchain.md` (held privately) (spike date 2026-07-22).
 
 All versions below verified as of 2026-07-22 against the linked source.
 

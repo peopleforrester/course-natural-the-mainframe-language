@@ -112,4 +112,4 @@ All accessed 2026-08-04.
 - Adabas ET command: https://documentation.softwareag.com/adabas/ada854mfr/comref/et.htm
 - Adabas CL command: https://documentation.softwareag.com/adabas/ada854mfr/comref/cl.htm
 - Index notation for multiple-value fields and periodic groups (demo EMPLOYEES view): https://documentation.softwareag.com/natural/nat911unx/pg/pg_output_index.htm
-- Course DDM under audit: /home/michael/repos/portfolio/course-natural-the-mainframe-language/crates/natural-core/src/data.rs
+- Course DDM under audit: crates/natural-core/src/data.rs

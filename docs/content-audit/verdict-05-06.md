@@ -131,6 +131,6 @@ All Software AG, all accessed 2026-08-04. Version 9.3.3 pages are Natural for Wi
 
 Repo files cited as evidence of interpreter divergence:
 
-- /home/michael/repos/portfolio/course-natural-the-mainframe-language/crates/natural-core/src/interp.rs
-- /home/michael/repos/portfolio/course-natural-the-mainframe-language/crates/natural-core/tests/decide.rs
-- /home/michael/repos/portfolio/course-natural-the-mainframe-language/crates/natural-core/tests/display.rs
+- crates/natural-core/src/interp.rs
+- crates/natural-core/tests/decide.rs
+- crates/natural-core/tests/display.rs
