@@ -3,6 +3,7 @@
 
 import { execFileSync, spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
+import net from 'node:net';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -45,6 +46,28 @@ if (!puppeteer) {
 
 const findings = [];
 const note = (where, kind, detail) => findings.push({ where, kind, detail });
+
+// Refuse to start if the port is already taken. Without this the spawned server simply
+// fails to bind, the walkthrough navigates to whatever else is listening, and the run dies
+// 30 seconds later on a waitForFunction timeout that says nothing about the real cause.
+const portFree = await new Promise((res) => {
+  const probe = net.connect({ host: '127.0.0.1', port: PORT });
+  probe.setTimeout(400);
+  const done = (free) => {
+    probe.destroy();
+    res(free);
+  };
+  probe.once('connect', () => done(false));
+  probe.once('timeout', () => done(true));
+  probe.once('error', () => done(true));
+});
+if (!portFree) {
+  console.error(
+    `port ${PORT} is already in use, so the walkthrough would test whatever is listening ` +
+      `there rather than this repo.\nRun with a free port: PORT=8913 node scripts/e2e-walkthrough.mjs`,
+  );
+  process.exit(2);
+}
 
 const server = spawn('python3', ['-m', 'http.server', String(PORT)], {
   cwd: resolve(root, 'web'),
