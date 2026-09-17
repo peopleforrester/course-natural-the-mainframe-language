@@ -10,7 +10,16 @@ import { fileURLToPath } from 'node:url';
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '..');
 const PORT = Number(process.env.PORT || 8791);
-const BASE = `http://127.0.0.1:${PORT}`;
+
+// BASE points the walkthrough at an origin that is already serving, for example a
+// deployed site. Without it the script serves web/ locally and tests that.
+//
+// This was previously computed from PORT alone while the caller was passing BASE, so
+// `BASE=https://example.invalid` still reported PASS against localhost. A harness that
+// silently ignores the argument naming what it tested is worse than no harness, because
+// the PASS gets quoted as evidence. Do not reintroduce a BASE that ignores the env.
+const EXTERNAL = Boolean(process.env.BASE);
+const BASE = process.env.BASE || `http://127.0.0.1:${PORT}`;
 
 // Puppeteer is not a project dependency; this script is opt-in and resolves it from wherever
 // it is installed rather than adding a browser download to every clone.
@@ -50,7 +59,8 @@ const note = (where, kind, detail) => findings.push({ where, kind, detail });
 // Refuse to start if the port is already taken. Without this the spawned server simply
 // fails to bind, the walkthrough navigates to whatever else is listening, and the run dies
 // 30 seconds later on a waitForFunction timeout that says nothing about the real cause.
-const portFree = await new Promise((res) => {
+// Irrelevant when testing an external origin, since nothing is served locally.
+const portFree = EXTERNAL ? true : await new Promise((res) => {
   const probe = net.connect({ host: '127.0.0.1', port: PORT });
   probe.setTimeout(400);
   const done = (free) => {
@@ -69,14 +79,17 @@ if (!portFree) {
   process.exit(2);
 }
 
-const server = spawn('python3', ['-m', 'http.server', String(PORT)], {
-  cwd: resolve(root, 'web'),
-  stdio: 'ignore',
-});
-const stop = () => server.kill();
+const server = EXTERNAL
+  ? null
+  : spawn('python3', ['-m', 'http.server', String(PORT)], {
+      cwd: resolve(root, 'web'),
+      stdio: 'ignore',
+    });
+const stop = () => server?.kill();
 process.on('exit', stop);
 
-await new Promise((r) => setTimeout(r, 1200));
+console.log(`walkthrough target: ${BASE}${EXTERNAL ? '  (external origin)' : '  (local web/)'}`);
+await new Promise((r) => setTimeout(r, EXTERNAL ? 0 : 1200));
 
 const browser = await puppeteer.launch({
   headless: 'new',
