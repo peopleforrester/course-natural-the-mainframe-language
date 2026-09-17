@@ -4,7 +4,10 @@ Read this before writing code. Every item is a trap that older tutorials, blog
 posts, and model training data still teach the wrong way. Full reasoning and
 citations are in `mrf-knowledge/natural-course-research/06-rust-wasm-toolchain.md` (held privately) (spike date 2026-07-22).
 
-All versions below verified as of 2026-07-22 against the linked source.
+All versions below verified as of 2026-09-17 against the linked source. The original
+spike was 2026-07-22; the re-check moved four pins and confirmed the rest unchanged.
+A dated line that says a version is current is a claim with a shelf life, so re-run the
+registry queries rather than trusting this header.
 
 ---
 
@@ -45,9 +48,9 @@ All versions below verified as of 2026-07-22 against the linked source.
 
 ## Rust toolchain
 
-* **Current stable is Rust 1.97.1, released 2026-07-16** (per
-  `static.rust-lang.org/dist/channel-rust-stable.toml`, accessed 2026-07-22).
-  Ships Cargo 0.98.0.
+* **Current stable is Rust 1.98.1, released 2026-09-01** (per
+  `static.rust-lang.org/dist/channel-rust-stable.toml`, accessed 2026-09-17).
+  `rust-toolchain.toml` pins this exact patch.
 
 * **Use `edition = "2024"`.** Stabilized in Rust 1.85.0 on 2025-02-20 and still
   the current edition. Greenfield crate, so `cargo fix --edition` is irrelevant.
@@ -87,7 +90,7 @@ All versions below verified as of 2026-07-22 against the linked source.
 
 * **The `wasm-bindgen` crate version and the `wasm-bindgen-cli` version must
   match exactly.** A mismatch gives a confusing schema-version error. Both are at
-  0.2.126 (published 2026-06-24). Using `wasm-pack` avoids this class of failure
+  0.2.128 (accessed 2026-09-17). Using `wasm-pack` avoids this class of failure
   because it fetches a matching CLI.
 
 * **Use `--target web`, not the wasm-pack default.** Wrong for a static site:
@@ -285,3 +288,32 @@ All versions below verified as of 2026-07-22 against the linked source.
 * Related: wasm-bindgen 0.2.122 made `panic=unwind` emit modern exnref exception
   handling by default, which requires Node 22.22.3 or newer. One more reason to
   stay on abort.
+
+---
+
+## Currency re-check, 2026-09-17
+
+Queried against crates.io, the npm registry, the Rust stable channel manifest, and the
+GitHub releases API. Recorded so the next pass can diff rather than start over.
+
+| Component | Was | Now | Note |
+|---|---|---|---|
+| Rust stable | 1.97.1 | **1.98.1** | pin bumped, full gate green |
+| `rust_decimal` | 1.42.1 | **1.43.0** | dropped several optional dependency trees |
+| `thiserror` | 2.0.19 | **2.0.20** | patch |
+| `wasm-bindgen` | 0.2.126 | **0.2.128** | two patches; wasm bundle rebuilt |
+| `wasm-pack` | 0.15.0 | 0.15.0 | unchanged |
+| `@xterm/xterm` | 6.0.0 | 6.0.0 | unchanged, still the current major |
+| `rbanffy/3270font` | v3.0.1 | v3.0.1 | unchanged |
+
+The `rust_decimal` bump removed 29 transitive crates and added 9, a net loss of twenty,
+because its optional `rkyv`, `bitvec` and `ahash` trees are no longer pulled in under
+`default-features = false`. Fewer crates to audit, and nothing in this project used them.
+
+Content was checked too, not just the toolchain. All **129** distinct
+`documentation.softwareag.com` URLs cited across `docs/`, `spec/`, `web/` and `AGENTS.md`
+return HTTP 200, so no citation has rotted. The lesson 1 claim that Adabas & Natural has
+been a standalone business under Software GmbH since January 2025 was re-confirmed against
+Software AG's own announcement, which dates the leadership appointment to 7 January 2025
+under Software GmbH, Silver Lake owned. A press-release path containing `/2024/` briefly
+looked like a contradiction and is not one.

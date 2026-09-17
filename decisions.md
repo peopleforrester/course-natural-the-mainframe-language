@@ -732,3 +732,29 @@ complete history before the rewrite ran.
 
 Consequence worth recording: every commit SHA changed. The six SHAs quoted in
 mrf-engagement-orchestrator#59 no longer resolve and were updated on that issue.
+
+## 2026-09-17T00:00:00Z · 2.3 · Currency re-check against live registries
+
+Eight weeks after the 2026-07-22 spike, every pinned version was re-queried against
+crates.io, the npm registry, the Rust stable channel manifest, and the GitHub releases
+API rather than assumed.
+
+Four moved and were taken: Rust 1.97.1 to 1.98.1, `rust_decimal` 1.42.1 to 1.43.0,
+`thiserror` 2.0.19 to 2.0.20, `wasm-bindgen` 0.2.126 to 0.2.128. Three had not moved and
+were left alone: `wasm-pack` 0.15.0, `@xterm/xterm` 6.0.0, `rbanffy/3270font` v3.0.1.
+The wasm bundle was rebuilt because wasm-bindgen changed, and both gates pass: the six
+stage local gate and the browser walkthrough over all fifteen lessons.
+
+The `rust_decimal` bump is a net loss of twenty transitive crates, since its optional
+`rkyv`, `bitvec` and `ahash` trees are no longer reachable under
+`default-features = false`.
+
+Content currency was checked as well, because a course rots through its citations rather
+than its dependencies. All 129 distinct Software AG documentation URLs cited in the repo
+return HTTP 200. The lesson 1 claim about Adabas & Natural operating as a standalone
+business under Software GmbH since January 2025 was re-confirmed against the vendor's own
+announcement (7 January 2025, Software GmbH, Silver Lake owned).
+
+No architectural change. The explicit program-counter loop with an explicit frame stack,
+and the screen buffer as first-class execution state, are unaffected by anything in this
+pass, and nothing in the ecosystem has made either cheaper to retrofit.

@@ -53,8 +53,8 @@ spec section 8 (v1 scope depth, confirm Rust, product intent, public-repo timing
 - Working tree: clean after the M-A commit
 - Tests: 270 passing (`cargo test --workspace`), clippy clean under `-D warnings`,
   `cargo fmt --check` clean
-- Toolchain: rustc 1.97.1 via the pinned `rust-toolchain.toml`, which independently
-  confirmed the version claim in spike 06
+- Toolchain: rustc 1.98.1 via the pinned `rust-toolchain.toml`, re-verified against the
+  Rust stable channel manifest on 2026-09-17
 - Wasm: `cargo build -p natural-core --target wasm32-unknown-unknown` succeeds with
   `rust_decimal` and `thiserror` in the tree, which settles both the day-one wasm check
   and the open `rust_decimal` wasm question from the gotchas doc.
@@ -74,3 +74,6 @@ spec section 8 (v1 scope depth, confirm Rust, product intent, public-repo timing
 - 2026-08-07 corrected the audit tallies everywhere they appeared. The earlier figures
   came from a word grep rather than a row count. Verdict tables now committed under
   `docs/content-audit/` so the counts are checkable.
+- 2026-09-17 currency re-check: four pins moved (Rust 1.98.1, rust_decimal 1.43.0,
+  thiserror 2.0.20, wasm-bindgen 0.2.128), three already current, 129/129 cited
+  documentation URLs still resolve. Both gates green.
