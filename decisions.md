@@ -758,3 +758,32 @@ announcement (7 January 2025, Software GmbH, Silver Lake owned).
 No architectural change. The explicit program-counter loop with an explicit frame stack,
 and the screen buffer as first-class execution state, are unaffected by anything in this
 pass, and nothing in the ecosystem has made either cheaper to retrofit.
+
+## 2026-10-17T00:00:00Z · 3.2 · Hecaton gates on scripts/gate.sh, which fetches pinned toolchains
+
+Hecaton runs this repo's Test command on a host with no Rust and no Node, so the first
+declaration, `bash scripts/verify.sh`, failed there with `cargo: command not found` at
+every stage that compiles. `scripts/gate.sh` now fetches the toolchains into
+`${XDG_CACHE_HOME:-$HOME/.cache}/course-natural-gate` and then runs `verify.sh`
+unchanged. This follows the rest of the fleet, whose Test commands provision Python and
+ruff through uv rather than assuming them. `verify.sh` is still the developer gate
+and the pre-push hook.
+
+Pins, checked against the live registries on 2026-10-17:
+
+- rustup 1.29.1 (current per `static.rust-lang.org/rustup/release-stable.toml`). It
+  installs Rust 1.98.1 and the wasm target from `rust-toolchain.toml`, so that file
+  stays the single Rust pin. Auto self-update is disabled so rustup stays at its pin.
+- Node v24.22.0, the current LTS line (Krypton, released 2026-10-14). v26 is still
+  Current, not LTS. Node only runs `scripts/extract-lesson-code.mjs`.
+
+Each download is checked against a sha256 written into the script, not one fetched from
+the same server. The script supports Linux x86_64 only, the host the gate runs on, and
+exits 2 with a message anywhere else.
+
+Running the gate under a stripped environment turned up a real bug in `verify.sh`. With no
+`LANG`, grep read the bracket expression of curly quotes and the ellipsis as single
+bytes, and flagged the check-mark and triangle glyphs in `web/app.js`, whose UTF-8
+encodings share those bytes. It passed only on hosts that happened to set a UTF-8 locale.
+That check is now a literal alternation, matching the em-dash check above it, which
+behaves the same in every locale.

@@ -71,8 +71,10 @@ if [[ -n "${prose_hits}" ]]; then
     failed+=('prose')
 else
     # Curly quotes and ellipsis characters are the other common paste artifacts, and they
-    # break the fixed-width terminal font when they land in lesson text.
-    smart_hits=$(prose_files | xargs -0 grep -ln '[‘’“”…]' 2>/dev/null || true)
+    # break the fixed-width terminal font when they land in lesson text. Written as an
+    # alternation, not a bracket expression: under the C locale grep reads a bracket of
+    # multibyte characters as single bytes, and then matches the lesson UI's arrow glyphs.
+    smart_hits=$(prose_files | xargs -0 grep -ln '‘\|’\|“\|”\|…' 2>/dev/null || true)
     if [[ -n "${smart_hits}" ]]; then
         printf '      FAILED: smart quotes or ellipsis found in:\n'
         printf '        %s\n' ${smart_hits}

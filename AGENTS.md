@@ -118,5 +118,5 @@ Decided from `mrf-knowledge/natural-course-research/08-mainframe-emulators-3270.
 - State lives in `PROJECT_STATE.md`; decisions append to `decisions.md`.
 - Prose has no em-dashes, per the global prose-style rule.
 
-Test command: `bash scripts/verify.sh`
+Test command: `bash scripts/gate.sh`
 E2E command: `wasm-pack build crates/natural-wasm --target web --out-dir ../../web/pkg --release && node scripts/e2e-walkthrough.mjs`
